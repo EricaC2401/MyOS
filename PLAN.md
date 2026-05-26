@@ -6,6 +6,8 @@ Build a personal expense tracker for one user.
 The app should be accessible from both MacBook and iPhone through a browser.
 The app should store data in Supabase PostgreSQL and provide CSV export for backup.
 
+The current stage is expense-only. Income support can be added later if requested.
+
 ## How to use this plan
 
 This plan is a roadmap, not a single implementation task.
@@ -28,9 +30,9 @@ Detailed setup and usage instructions should live in `README.md`.
 
 ## Current status
 
-Current milestone: M0 Project setup
+Current milestone: M1 Supabase database setup
 
-- M0 Project setup: Not started
+- M0 Project setup: Completed
 - M1 Supabase database setup: Not started
 - M2 Data validation and models: Not started
 - M3 Basic categories: Not started
@@ -58,6 +60,7 @@ Current milestone: M0 Project setup
 - Basic reports
 - Simple app-level password protection before deployment
 - Deployment to Streamlit Community Cloud if suitable
+- Expense-only tracking for the initial version
 
 ### Excluded
 
@@ -114,7 +117,6 @@ Required transaction fields:
 - `transaction_date`
 - `description`
 - `amount`
-- `transaction_type`
 - `category`
 - `payment_method`
 - `notes`
@@ -124,10 +126,9 @@ Required transaction fields:
 Rules:
 
 - Store amounts as positive numbers.
-- Use `transaction_type` to distinguish `income` from `expense`.
 - Default missing or blank categories to `Uncategorised`.
-- Income increases balance.
-- Expense decreases balance.
+- The current stage tracks expenses only.
+- Expense reports should treat stored amounts as spending.
 - `updated_at` should be maintained by a PostgreSQL trigger or explicit application logic. Prefer a trigger for V1.
 
 The exact PostgreSQL schema should be implemented in SQL migration files under `sql/`, not directly in this plan.
@@ -161,7 +162,7 @@ expense-tracker/
 │   ├── test_export_csv.py
 │   └── test_reports.py
 └── sample_data/
-    └── sample_transactions.csv
+    └── sample_expense.csv
 ```
 
 ---
@@ -179,11 +180,11 @@ Create the basic project structure.
 - Create `requirements.txt` with the core packages.
 - Create `.gitignore` covering secrets and local cache files.
 - Create `.streamlit/secrets.toml.example`.
-- Add `sample_data/sample_transactions.csv` with 5–10 example rows.
+- Use the provided `sample_data/sample_expense.csv` as the example CSV for the project.
 
-The sample CSV should use these columns:
+The sample expense CSV currently uses these columns:
 
-`transaction_date`, `description`, `amount`, `transaction_type`, `category`, `payment_method`, `notes`
+`Date`, `Item`, `Expense Type`, `Tax Deductable`, `Expense (GBP)`, `Expense (HKD)`, `Note`, `Cash?`
 
 ### Done when
 
@@ -244,7 +245,6 @@ Create basic validation for transaction data.
 - Add transaction validation logic in `src/models.py`.
 - Validate required fields.
 - Reject negative amounts.
-- Reject transaction types other than `income` or `expense`.
 - Use `Uncategorised` if no category is provided.
 - Normalise text fields where useful.
 - Add tests in `tests/test_models.py`.
@@ -254,7 +254,6 @@ Create basic validation for transaction data.
 - Valid data passes validation.
 - Invalid data returns clear error messages.
 - Negative amounts are rejected.
-- Invalid transaction types are rejected.
 - Missing categories default to `Uncategorised`.
 - Tests pass.
 
@@ -329,7 +328,7 @@ Create basic database operations.
 
 ### Goal
 
-Allow the user to add transactions manually.
+Allow the user to add expenses manually.
 
 ### Codex tasks
 
@@ -342,7 +341,7 @@ Allow the user to add transactions manually.
 
 ### Done when
 
-- User can add an expense and income manually.
+- User can add an expense manually.
 - User can select from the default category list.
 - Invalid input shows a helpful error message.
 - Saved transactions appear in the database.
@@ -422,13 +421,13 @@ Allow the user to import transactions from CSV.
 
 ### Expected CSV columns
 
-`transaction_date`, `description`, `amount`, `transaction_type`, `category`, `payment_method`, `notes`
+The import format for the current stage is based on `sample_data/sample_expense.csv`.
 
 ### Codex tasks
 
 - Add CSV upload in Streamlit.
 - Add CSV cleaning logic in `src/import_csv.py`.
-- Validate required columns, dates, amounts, and transaction types.
+- Validate required columns, dates, and amounts.
 - Use `Uncategorised` if category is missing or blank.
 - Before inserting, show a clear warning that V1 does not perform full duplicate detection.
 - Ask the user to confirm before inserting imported rows.
@@ -454,11 +453,9 @@ Add basic financial summaries.
 
 ### Reports
 
-- Monthly income
 - Monthly expenses
-- Net balance
 - Spending by category
-- Largest transactions
+- Largest expenses
 - Monthly trend
 
 ### Codex tasks
@@ -468,13 +465,13 @@ Add basic financial summaries.
 - Add charts and summary tables in Streamlit.
 - Allow the user to select a date range or month.
 - Keep report calculations outside `src/app.py`.
-- Apply sign logic correctly.
+- Apply expense totals consistently.
 
 ### Done when
 
-- User can view monthly spending, category breakdowns, and net balance.
+- User can view monthly spending and category breakdowns.
 - Uncategorised transactions are grouped clearly.
-- Net balance is calculated correctly.
+- Expense totals are calculated correctly.
 - Report calculations are tested.
 
 ---

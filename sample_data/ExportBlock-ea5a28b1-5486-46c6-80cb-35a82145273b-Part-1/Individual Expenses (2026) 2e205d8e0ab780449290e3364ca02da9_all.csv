@@ -1,0 +1,800 @@
+﻿Item,Cash?,Date,Expense (GBP),Expense (HKD),Expense Type,Month,Note,Tax Deductable
+Groceries (Tesco),No,"March 31, 2025",£94.52,,Groceries,3,,No
+TK Mass Groceries,No,"May 5, 2025",£28.99,,Groceries,5,,No
+Groceries,No,"May 25, 2025",£150.96,,Groceries,5,,No
+Concert,No,"April 13, 2025",£30.00,,Others,4,,No
+Driving Instructor,No,"March 31, 2025",£130.00,,Others,3,,No
+Desk,No,"April 1, 2025",£88.98,,Others,4,,Yes
+Apple Cloud,No,"February 1, 2025",£2.99,,Subscription,2,,No
+Gift For Zoe,No,"April 13, 2025",£14.99,,Others,4,,No
+Transportation,No,"February 28, 2025",£34.95,,Transportation,2,,No
+Bus,No,"April 30, 2025",£3.90,,Transportation,4,,No
+OpenAI API Credit,No,"February 20, 2025",£4.77,,Learning,2,,No
+Groceries,No,"April 30, 2025",£183.46,,Groceries,4,,No
+Gathering,No,"May 5, 2025",£15.00,,Gathering,5,,No
+"Gift For Yan ",No,"April 16, 2025",£9.40,,Others,4,,No
+Bolt for May,No,"April 3, 2025",£23.20,,Others,4,,No
+VOXI,No,"February 1, 2025",£10.00,,Subscription,2,,No
+Gathering,No,"April 14, 2025",£4.85,,Gathering,4,,No
+Groceries,No,"February 28, 2025",£85.68,,Groceries,2,,No
+Let Insurance,No,"February 1, 2025",£15.81,,Housing,2,,Yes
+Apple Cloud,No,"May 1, 2025",£2.99,,Subscription,5,,No
+Rent,No,"April 1, 2025",£625.00,,Housing,4,,Yes
+Apple Cloud,No,"March 1, 2025",£2.99,,Subscription,3,,No
+Transportation,No,"March 31, 2025",£6.10,,Transportation,3,,No
+Gathering With KBA,No,"February 7, 2025",£30.00,,Gathering,2,,No
+Wetherspoon,No,"April 1, 2025",£9.97,,Eat Out,4,,No
+Focus-to-do (Lifetime),No,"May 25, 2025",£11.99,,Learning,5,,Yes
+Gathering,No,"April 20, 2025",£21.00,,Gathering,4,,No
+Bolt,No,"April 13, 2025",£26.30,,Transportation,4,,No
+Groceries,No,"March 31, 2025",£68.23,,Groceries,3,,No
+Eat Out,No,"March 31, 2025",£17.27,,Eat Out,3,,No
+Train (Round),No,"April 3, 2025",£11.50,,Transportation,4,,No
+Hotpot,No,"May 6, 2025",£16.00,,Gathering,5,,No
+Groceries,No,"April 30, 2025",£26.87,,Groceries,4,,No
+Gathering,No,"March 31, 2025",£13.70,,Gathering,3,,No
+Gathering,No,"March 31, 2025",£23.40,,Gathering,3,,No
+Car Related (Excluding Car Value),No,"May 2, 2025","£1,875.12",,Car Related,5,,No
+Popeyes,No,"May 2, 2025",£5.29,,Eat Out,5,,No
+Dinner,No,"April 13, 2025",£12.85,,Eat Out,4,,No
+HPI,No,"March 5, 2025",£19.99,,Car Related,3,,No
+Groceries (Boots),No,"February 2, 2025",£3.60,,Groceries,2,,No
+Gathering,No,"March 31, 2025",£12.30,,Gathering,3,,No
+VOXI,No,"April 1, 2025",£10.00,,Subscription,4,,No
+Post Office,No,"April 22, 2025",£3.60,,Others,4,,No
+Eat Out,No,"February 28, 2025",£33.54,,Eat Out,2,,No
+Extra Fine for Speaking Without Thinking,No,"May 6, 2025",£8.60,,Others,5,,No
+Gathering,No,"April 30, 2025",£28.00,,Gathering,4,,No
+Rent,No,"May 1, 2025",£625.00,,Housing,5,,Yes
+Gathering At Tony’s Home,No,"February 23, 2025",£14.70,,Gathering,2,,No
+K (Fine for Speaking Without Thinking),No,"March 6, 2025",£159.20,,Others,3,,No
+VOXI,No,"March 1, 2025",£10.00,,Subscription,3,,No
+Dinner with May,No,"April 3, 2025",£29.64,,Eat Out,4,,No
+Dinner With Lonng,No,"February 24, 2025",£35.49,,Gathering,2,,No
+Gathering,No,"April 20, 2025",£14.00,,Gathering,4,,No
+Food,No,"May 26, 2025",£9.65,,Food,5,,No
+Boots,No,"May 2, 2025",£28.48,,Groceries,5,,No
+Wasted Resettlement Bus,No,"April 13, 2025",£5.00,,Transportation,4,,No
+Apple Cloud,No,"April 1, 2025",£2.99,,Subscription,4,,No
+ChatGPT,No,"April 30, 2025",£17.94,,Subscription,4,,Yes
+Bus,No,"May 5, 2025",£4.00,,Transportation,5,,No
+Washing Liquid,No,"May 28, 2025",£5.50,,Groceries,5,,No
+Groceries (Tesco),No,"February 28, 2025",£64.70,,Groceries,2,,No
+Food,No,"May 27, 2025",£11.11,,Food,5,,No
+"Gift For Sammel ",No,"May 28, 2025",£6.71,,Others,5,,No
+Groceries (Boots),No,"March 4, 2025",£6.00,,Groceries,3,,No
+Breakdown Cover,No,"May 30, 2025",£2.00,,Car Related,5,,No
+Pineapple,No,"May 31, 2025",£1.88,,Food,5,,No
+Food,No,"May 29, 2025",£12.04,,Food,5,,No
+Wine,No,"May 30, 2025",£11.00,,Groceries,5,,No
+ChatGPT,No,"May 30, 2025",£17.90,,Subscription,5,,Yes
+Rent,No,"June 1, 2025",£625.00,,Housing,6,,Yes
+"TK Maxx (Hat 2.5, Container 4)",No,"May 31, 2025",£6.50,,Others,5,,No
+Snakes,No,"May 30, 2025",£4.99,,Groceries,5,,No
+Rice,No,"June 1, 2025",£1.79,,Food,6,,No
+Wipe,No,"June 1, 2025",£0.49,,Groceries,6,,No
+VOXI,No,"June 3, 2025",£10.00,,Subscription,6,,No
+Food,No,"June 2, 2025",£2.08,,Food,6,,No
+Food,No,"June 5, 2025",£1.86,,Food,6,,No
+Snakes,No,"June 5, 2025",£2.74,,Snacks,6,,No
+Snakes,No,"June 2, 2025",£1.69,,Snacks,6,,No
+Food,No,"June 2, 2025",£7.16,,Food,6,,No
+,No,,,,,,,No
+Gathering Food,No,"May 31, 2025",£19.00,,Gathering,5,,No
+Dental floss,No,"June 4, 2025",£1.30,,Groceries,6,,No
+Diesel,No,"June 3, 2025",£30.01,,Car Related,6,,No
+,No,,,,,,,No
+Snakes,No,"June 8, 2025",£5.49,,Snacks,6,,No
+,No,,,,,,,No
+Apple Cloud,No,"June 7, 2025",£2.99,,Subscription,6,,No
+,No,,,,,,,No
+Food,No,"June 4, 2025",£1.00,,Food,6,,No
+Food,No,"June 9, 2025",£3.41,,Food,6,,No
+Food,No,"June 8, 2025",£5.74,,Food,6,,No
+Chocolate,No,"June 9, 2025",£2.50,,Snacks,6,,No
+Rent,No,"July 1, 2025",£625.00,,Housing,7,,Yes
+Food,No,"June 6, 2025",£8.82,,Food,6,,No
+"HL drink, mayo",No,"June 8, 2025",£3.75,,Snacks,6,,No
+"Egg, bread, veg, beef, gherkin",No,"June 12, 2025",£11.99,,Food,6,,No
+"Ice-cream, chip",No,"June 11, 2025",£4.25,,Snacks,6,,No
+Chicken thigh,No,"June 11, 2025",£2.99,,Food,6,,No
+Bread,No,"June 15, 2025",£1.69,,Food,6,,No
+bloo,No,"June 10, 2025",£1.65,,Groceries,6,,No
+"Mango, Vegetable, Beans",No,"June 10, 2025",£2.69,,Food,6,,No
+Actimel,No,"June 12, 2025",£2.50,,Drink,6,,No
+Snakes,No,"June 10, 2025",£3.00,,Snacks,6,,No
+,No,,,,,,,No
+Ice Cream and Snake,No,"June 15, 2025",£2.68,,Snacks,6,,No
+,No,,,,,,,No
+Fine Beams,No,"June 13, 2025",£0.64,,Food,6,,No
+,No,,,,,,,No
+Bread,No,"June 15, 2025",£1.49,,Food,6,,No
+Drink (Sparking Water),No,"June 13, 2025",£2.80,,Drink,6,,No
+Chicken Thighs,No,"June 15, 2025",£2.69,,Food,6,,No
+,No,,,,,,,No
+Food,No,"June 18, 2025",£2.12,,Food,6,,No
+Veg,No,"June 16, 2025",£1.60,,Food,6,,No
+Dinner (Fish and Chip),No,"June 14, 2025",£7.85,,Gathering,6,,No
+Food,No,"June 15, 2025",£4.98,,Food,6,,No
+McDonald’s,No,"June 14, 2025",£2.29,,Eat Out,6,,No
+Chips,No,"June 16, 2025",£2.60,,Snacks,6,,No
+,No,,,,,,,No
+"Rice, Veg",No,"June 20, 2025",£2.97,,Food,6,,No
+Fai Driving,No,"June 21, 2025",£14.10,,Transportation,6,,No
+"Ice-cream, Wafers",No,"June 20, 2025",£4.90,,Snacks,6,,No
+Bus,No,"June 21, 2025",£2.00,,Transportation,6,,No
+,No,,,,,,,No
+Tyre Repair,No,"June 24, 2025",£15.00,,Car Related,6,,No
+Food,No,"June 23, 2025",£9.81,,Food,6,,No
+Veg,No,"June 24, 2025",£2.96,,Food,6,,No
+Pizza Dinner,No,"June 21, 2025",£9.32,,Eat Out,6,,No
+Ocean Treasure Lunch,No,"June 21, 2025",£15.00,,Eat Out,6,,No
+Ice-cream,No,"June 21, 2025",£2.75,,Eat Out,6,,No
+"Veg, bread",No,"June 24, 2025",£1.77,,Food,6,,No
+Strawberry Pickup,No,"June 21, 2025",£5.21,,Others,6,,No
+"Tyre Inflator, Pressure Gauge, Emergency Kit",No,"June 19, 2025",£66.54,,Car Related,6,,No
+Chips and Drink,No,"June 25, 2025",£6.00,,Snacks,6,,No
+Hand Wash,No,"June 25, 2025",£0.80,,Groceries,6,,No
+Body Lotion,No,"June 25, 2025",£3.99,,Groceries,6,,No
+Hong Thai Lunch,No,"June 28, 2025",£13.00,,Eat Out,6,,No
+Preston Dinner,No,"June 27, 2025",£25.80,,Gathering,6,,No
+Food,No,"June 29, 2025",£10.89,,Food,6,,No
+Diesel,No,"June 28, 2025",£30.82,,Car Related,6,,No
+"Toothbrush, cotton buds, bloo",No,"June 29, 2025",£5.67,,Groceries,6,,No
+Lean Chicken,No,"June 25, 2025",£0.75,,Food,6,,No
+Ice-cream,No,"June 29, 2025",£1.80,,Snacks,6,,No
+Food,No,"July 2, 2025",£6.24,,Food,7,,No
+Refreshing Toner,No,"July 2, 2025",£5.99,,Groceries,7,,No
+Food,No,"June 30, 2025",£10.50,,Food,6,,No
+KFC Dinner,No,"June 28, 2025",£1.58,,Gathering,6,,No
+Drink,No,"July 3, 2025",£3.00,,Drink,7,,No
+Drink,No,"July 1, 2025",£3.25,,Drink,7,,No
+Fruit & Noodles,No,"July 3, 2025",£5.10,,Food,7,,No
+Wiper,No,"July 1, 2025",£0.80,,Groceries,7,,No
+Tesco?,No,"June 26, 2025",£6.00,,Groceries,6,,No
+GPT,No,"July 1, 2025",£17.52,,Subscription,7,,Yes
+Gift for Alice’s Cat,No,"July 9, 2025",£7.00,,Gift,7,,No
+"Veg, Burger",No,"July 6, 2025",£7.69,,Food,7,,No
+Hang Out With Tommy,No,"July 5, 2025",£20.00,,Gathering,7,,No
+Food,No,"July 12, 2025",£9.35,,Food,7,,No
+"Tomato, Veg",No,"July 4, 2025",£3.80,,Food,7,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Apply Cider at Pub,No,"July 12, 2025",£2.40,,Eat Out,7,,No
+Voxi,No,"July 3, 2025",£10.00,,Subscription,7,,No
+"Veg, Tomato",No,"July 9, 2025",£3.14,,Food,7,,No
+M&S Food,No,"July 9, 2025",£8.75,,Food,7,,No
+Bueno,No,"July 4, 2025",£2.80,,Snacks,7,,No
+Coke (For Cooking),No,"July 9, 2025",£0.65,,Food,7,,No
+Pad,No,"July 9, 2025",£5.50,,Groceries,7,,No
+M Pads,No,"July 19, 2025",£11.50,,Groceries,7,,No
+Korean Food (delivery),No,"July 12, 2025",£9.50,,Gathering,7,,No
+"Veg, Cherries",No,"July 19, 2025",£4.06,,Food,7,,No
+Veg,No,"July 14, 2025",£1.76,,Food,7,,No
+"Bread, Egg",No,"July 19, 2025",£2.95,,Food,7,,No
+Snake,No,"July 19, 2025",£2.00,,Snacks,7,,No
+"Veg*2, Rice, Noddles*3, Garlic, Ginger, Chilli  ",No,"July 22, 2025",£7.94,,Food,7,,No
+Food,No,"July 12, 2025",£8.29,,Food,7,,No
+"Chicken, Fish, Egg, Bread",No,"July 14, 2025",£8.03,,Food,7,,No
+Rice Cake,No,"July 14, 2025",£5.55,,Snacks,7,,No
+"Pork Belly, Veg",No,"July 19, 2025",£10.63,,Food,7,,No
+Green Pepper,No,"July 24, 2025",£0.69,,Food,7,,No
+M&S Peach Drink,No,"July 26, 2025",£2.00,,Drink,7,,No
+"Chocolate, Candy",No,"July 24, 2025",£5.10,,Snacks,7,,No
+Snacks,No,"July 24, 2025",£5.67,,Snacks,7,,No
+"Bread, Egg",No,"July 24, 2025",£3.65,,Food,7,,No
+Rubbish Bags; toilet duck,No,"July 25, 2025",£1.78,,Groceries,7,,No
+Diesal,No,"July 26, 2025",£30.15,,Car Related,7,,No
+,No,,,,,,,No
+Ice-cream,No,"July 22, 2025",£2.50,,Snacks,7,,No
+Dental Floss,No,"July 24, 2025",£1.50,,Groceries,7,,No
+Snack,No,"July 26, 2025",£1.96,,Snacks,7,,No
+,No,,,,,,,No
+"Bread, Cucumber",No,"August 1, 2025",£4.30,,Food,8,,No
+OpenAi,No,"August 1, 2025",£18.04,,Subscription,8,,Yes
+Veg,No,"July 26, 2025",£1.15,,Food,7,,No
+Rent,No,"August 1, 2025",£625.00,,Housing,8,,Yes
+"Egg, Veg",No,"August 1, 2025",£11.81,,Food,8,,No
+Crisps,No,"August 1, 2025",£1.63,,Snacks,8,,No
+,No,,,,,,,No
+Chicken Wings; Pork,No,"July 26, 2025",£4.40,,Food,7,,No
+Jaffa Cakes,No,"August 1, 2025",£1.00,,Snacks,8,,No
+,No,,,,,,,No
+"Noodles, Veg, Blueberries",No,"July 26, 2025",£8.46,,Food,7,,No
+Sparkling Water,No,"August 5, 2025",£2.39,,Snacks,8,,No
+CR1620 Battery,No,"August 5, 2025",£2.46,,Car Related,8,,No
+,No,,,,,,,No
+Veg,No,"August 1, 2025",£1.14,,Food,8,,No
+"Veg, Noodles, flavouring agents",No,"August 5, 2025",£6.07,,Food,8,,No
+Voxi,No,"August 2, 2025",£10.00,,Subscription,8,,No
+RAC,No,"August 1, 2025",£2.00,,Car Related,8,,No
+"Rice, Coke",No,"August 1, 2025",£3.19,,Food,8,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Apple,No,"August 6, 2025",£2.99,,Subscription,8,,No
+"Chicken, Bread, Egg, Veg & Fruit",No,"August 5, 2025",£7.41,,Food,8,,No
+Fish,No,"August 9, 2025",£9.50,,Eat Out,8,,No
+"Veg, Bread, Chicken, Easy Peelers",No,"August 10, 2025",£6.55,,Food,8,,No
+"Veg, Cherry Tomato, Pork Rib",No,"August 10, 2025",£11.00,,Food,8,,No
+Crisps; Jaffa Cake,No,"August 10, 2025",£3.00,,Snacks,8,,No
+Diesel,No,"August 10, 2025",£20.81,,Car Related,8,,No
+Yogurt Rice Cakes,No,"August 5, 2025",£1.68,,Snacks,8,,No
+Car Park,No,"August 9, 2025",£7.00,,Car Related,8,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Crisps,No,"August 16, 2025",£2.00,,Snacks,8,,No
+Dental Floss,No,"August 12, 2025",£1.59,,Groceries,8,,No
+Fruit; Bread;Veg; Tomatos,No,"August 16, 2025",£5.23,,Food,8,,No
+,No,,,,,,,No
+Lemonade,No,"August 16, 2025",£0.49,,Drink,8,,No
+Prawn Crackers,No,"August 16, 2025",£1.01,,Snacks,8,,No
+Bread,No,"August 12, 2025",£0.39,,Food,8,,No
+Oil Container-Compensation,No,"August 11, 2025",£8.79,,Others,8,,No
+"Veg, Tomatos, Egg",No,"August 16, 2025",£6.88,,Food,8,,No
+Burger,No,"August 16, 2025",£8.20,,Eat Out,8,,No
+d,No,,,,,,,No
+Check Title for PR35ED,No,"August 18, 2025",£7.00,,Housing,8,,No
+,No,,,,,,,No
+Dinner,No,"August 17, 2025",£11.20,,Gathering,8,,No
+,No,,,,,,,No
+Veg; Rice,No,,,,,,,No
+Lunch,No,"August 17, 2025",£11.80,,Gathering,8,,No
+Preston Car Park,No,"August 16, 2025",£1.50,,Car Related,8,,No
+Crisps,No,"August 20, 2025",£3.00,,Snacks,8,,No
+Diesel,No,"August 20, 2025",£28.21,,Car Related,8,,No
+Veg; Fruit,No,"August 20, 2025",£5.20,,Food,8,,No
+Jaffa Cakes,No,"August 26, 2025",£0.95,,Snacks,8,,No
+Chair Arm Repair,No,"August 28, 2025",£4.99,,Others,8,,No
+Bread; Ginger,No,"August 20, 2025",£0.99,,Food,8,,No
+Chocolate Fingers,No,"August 26, 2025",£2.29,,Snacks,8,,No
+Veg; Rice,No,"August 20, 2025",£4.99,,Food,8,,No
+,No,,,,,,,No
+Chicken Wings; Yogurt,No,"August 20, 2025",£4.25,,Food,8,,No
+"Rice, Noodles; Pork; Veg; Eggs;",No,"August 26, 2025",£15.74,,Food,8,,No
+Bread; Veg; Milk; Eggs; Mackerel Fillets,No,"August 26, 2025",£9.77,,Food,8,,No
+Car Boot Protector,No,"August 28, 2025",£14.99,,Car Related,8,,No
+OpenAI,No,"September 1, 2025",£17.85,,Subscription,9,,Yes
+Rent,No,"September 1, 2025",£625.00,,Housing,9,,Yes
+,No,,,,,,,No
+,No,,,,,,,No
+Manchester Home Lunch,No,"August 30, 2025",£27.00,,Eat Out,8,,No
+HP00 Filter,No,"August 28, 2025",£16.99,,Others,8,,No
+Crisps,No,"September 2, 2025",£1.85,,Snacks,9,,No
+Body Lotion,No,"September 2, 2025",£6.50,,Groceries,9,,No
+Dinner at Katy’s Home,No,"August 30, 2025",£15.16,,Gathering,8,,No
+,No,,,,,,,No
+Fruits; Meat; Tomatos,No,"September 2, 2025",£11.21,,Food,9,,No
+Crisps; KitKat Cereal,No,"September 4, 2025",£5.72,,Snacks,9,,No
+,No,,,,,,,No
+RAC,No,"September 2, 2025",£2.00,,Car Related,9,,No
+Coca Cola*2,No,"September 4, 2025",£1.30,,Food,9,,No
+Meat; Veg; Rice,No,"September 4, 2025",£7.57,,Food,9,,No
+Voxi,No,"September 2, 2025",£10.00,,Subscription,9,,No
+Cucumber*2; Tomatoes,No,"September 4, 2025",£3.00,,Food,9,,No
+Zipped Storage Bag,No,"September 4, 2025",£1.99,,Groceries,9,,No
+Cycle Hub Annual Renew,No,"September 2, 2025",£10.00,,Others,9,,No
+Veg,No,"September 2, 2025",£2.60,,Food,9,,No
+Chicken Wings; Bread,No,"September 4, 2025",£4.55,,Food,9,,No
+Apple Juice,No,"September 6, 2025",£2.25,,Drink,9,,No
+A slice of Bday Cake,No,"September 6, 2025",£7.00,,Eat Out,9,,No
+Apple Cloud,No,"September 6, 2025",£2.99,,Subscription,9,,No
+"Green Pepper * 2 + Ginger ",No,"September 6, 2025",£1.44,,Food,9,,No
+Fuzz Buster,No,"September 6, 2025",£3.99,,Gift,9,For Alice,No
+Bday Card,No,"September 6, 2025",£0.40,,Gift,9,For Alice,No
+,No,,,,,,,No
+Diesel,No,"September 6, 2025",£29.90,,Car Related,9,,No
+Crisps,No,"September 6, 2025",£1.86,,Snacks,9,,No
+Tesco Mean Deal,No,"September 6, 2025",£3.85,,Eat Out,9,,No
+Coriander + Onion,No,"September 8, 2025",£0.81,,Food,9,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Milk + Bread + Egg,No,"September 8, 2025",£4.65,,Food,9,,No
+Movie Ticket,No,"September 12, 2025",£10.49,,Gathering,9,,No
+Bike Repair Labor + Front Wheel + Chain,No,"September 8, 2025",£102.45,,Others,9,,No
+"Actimel ",No,"September 14, 2025",£2.00,,Drink,9,,No
+,No,,,,,,,No
+A,No,,,,,,,No
+Crackers; Ice-cream,No,"September 14, 2025",£4.00,,Snacks,9,,No
+Dinner (Ciaooo Pizza),No,"September 12, 2025",£21.81,,Eat Out,9,,No
+Dinner (Popeye),No,"September 13, 2025",£14.21,,Gathering,9,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Bread and Eggs,No,"September 18, 2025",£4.35,,Food,9,,No
+Noodles;Carrot,No,"September 14, 2025",£2.06,,Food,9,,No
+,No,,,,,,,No
+Meat; Veg; Ginger; Bread,No,"September 14, 2025",£11.40,,Food,9,,No
+Crisps,No,"September 18, 2025",£3.00,,Snacks,9,,No
+Chocolate & Ice-cream,No,"September 18, 2025",£13.25,,Snacks,9,,No
+Veg,No,"September 18, 2025",£3.05,,Food,9,,No
+Bag for Ca,No,"September 18, 2025",£1.30,,Gift,9,,No
+Helmet,No,"September 18, 2025",£44.99,,Others,9,,No
+,No,,,,,,,No
+Burger; Veg; Rice,No,"September 18, 2025",£12.00,,Food,9,,No
+,No,,,,,,,No
+Duck Blue,No,"September 18, 2025",£0.99,,Groceries,9,,No
+KFC & Pizza,No,"September 20, 2025",£6.25,,Gathering,9,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Femfresh Wash,No,"September 18, 2025",£1.99,,Groceries,9,,No
+Storage Bags (1L1S),No,"September 18, 2025",£3.29,,Others,9,,No
+Car Cover,No,"September 21, 2025",£20.53,,Car Related,9,,No
+Plug Converter,No,"September 21, 2025",£0.78,,Others,9,,No
+Soft Drink,No,"September 18, 2025",£0.35,,Drink,9,,No
+Board Games * 4,No,"September 21, 2025",£15.00,,Others,9,,No
+Tomatos; Coriander; Onion,No,"September 23, 2025",£4.44,,Food,9,,No
+Lunch,No,"September 28, 2025",£2.37,,Eat Out,9,,No
+Rent,No,"October 1, 2025",£495.00,,Housing,10,,Yes
+Toothpaste,No,"September 23, 2025",£2.75,,Groceries,9,,No
+Bike Rear Light & Mirrors,No,"September 21, 2025",£7.78,,Others,9,,No
+Driving Insurance Address Change,No,"September 27, 2025",£20.01,,Car Related,9,,No
+Diesel @135.9 p/l,No,"September 28, 2025",£52.08,,Car Related,9,,No
+Chicken & Tuna,No,"September 23, 2025",£3.68,,Food,9,,No
+Tissue,No,"September 28, 2025",£2.00,,Groceries,9,,No
+Pork Belly,No,"October 1, 2025",£3.53,,Food,10,,No
+Veg,No,"September 28, 2025",£1.15,,Food,9,,No
+"Lunch ",No,"September 27, 2025",£20.50,,Eat Out,9,,No
+,No,,,,,,,No
+KitTat Cereal,No,"September 28, 2025",£2.50,,Food,9,,No
+Pork+Bread+Veg+Egg,No,"September 30, 2025",£11.41,,Food,9,,No
+Toilet Gel,No,"October 1, 2025",£1.25,,Groceries,10,,No
+,No,,,,,,,No
+Milk,No,"September 27, 2025",£1.15,,Food,9,,No
+Ice-cream,No,"September 27, 2025",£8.24,,Snacks,9,,No
+Cooking Oil,No,"October 1, 2025",£4.50,,C Groceries,10,,No
+ChatGPT,No,"October 1, 2025",£17.93,,Subscription,10,,No
+Chicken Wings,No,"October 1, 2025",£1.65,,Food,10,,No
+,No,,,,,,,No
+Wok,No,"October 1, 2025",£17.00,,Others,10,,No
+Crisps,No,"October 1, 2025",£1.50,,Snacks,10,,No
+RAC,No,"October 1, 2025",£2.00,,Car Related,10,,No
+Veg,No,"October 1, 2025",£6.25,,Food,10,,No
+Fish Balls + Dumplings + Udon,No,"October 1, 2025",£12.89,,Food,10,,No
+Cooking Wine; Oyster Sauce,No,"October 1, 2025",£7.05,,Groceries,10,,No
+Tea Bags,No,"October 2, 2025",£6.00,,Drink,10,,No
+VOXI,No,"October 1, 2025",£10.00,,Subscription,10,,No
+Toilet Paper + Soy Source,No,"September 30, 2025",£6.00,,C Groceries,9,,No
+,No,,,,,,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Port Belly; Veg,No,,,,,,,No
+Icecream spoon; Peeler; Wiper; Bag,No,"October 2, 2025",£12.96,,Others,10,,No
+Toilet Brush; Duck Blue; Kitchen Paper,No,"October 2, 2025",£4.97,,Groceries,10,,No
+Bath Mat,No,"October 2, 2025",£5.99,,Others,10,,No
+BB RIBs,No,"October 2, 2025",£2.39,,Food,10,,No
+Sugar,No,"October 2, 2025",£1.35,,C Groceries,10,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Still Water,No,"October 2, 2025",£1.39,,Drink,10,,No
+Sticker,No,"October 2, 2025",£4.50,,Others,10,,No
+Kitchen holder,No,"October 2, 2025",£3.99,,Others,10,,No
+Send Out Old Driving Licence,No,"October 6, 2025",£3.60,,Others,10,,No
+Veg; Coriander; Eggs; Ginger; Pork Belly,No,"October 6, 2025",£7.19,,Food,10,,No
+Dental Floss,No,"October 6, 2025",£3.18,,Groceries,10,,No
+,No,,,,,,,No
+"Sesame Oil; Brown Sugar; Cane Sugar; Fried Shallot and garlic ",No,"October 6, 2025",£9.40,,Groceries,10,,No
+Apple Cloud,No,"October 1, 2025",£2.99,,Subscription,10,,No
+,No,,,,,,,No
+Potato; chili; ?,No,"October 7, 2025",£1.50,,Food,10,,No
+Spatula,No,"October 7, 2025",£1.99,,Others,10,,No
+Carrot,No,"October 7, 2025",£0.55,,Food,10,,No
+,No,,,,,,,No
+Peach Ice Tea,No,"October 7, 2025",£2.00,,Drink,10,,No
+"Wipers *2 + ",No,,,,,,,No
+Chop And Slice,No,"October 7, 2025",£6.99,,Others,10,,No
+Eggs; Veg; Chicken; Bread,No,"October 7, 2025",£9.70,,Food,10,,No
+Slant Tweezers,No,"October 9, 2025",£3.60,,Appearance Related,10,,No
+Lip Balm,No,"October 9, 2025",£2.65,,Appearance Related,10,,No
+Cosmetic,No,"October 7, 2025",£73.91,,Appearance Related,10,,No
+Dinner,No,"October 9, 2025",£5.99,,Eat Out,10,,No
+Makeup Tools,No,"October 7, 2025",£10.98,,Appearance Related,10,,No
+Gong Cha,No,"October 11, 2025",£11.70,,Eat Out,10,,No
+Water Spray,No,"October 9, 2025",£15.50,,Appearance Related,10,,No
+Bus,No,"October 9, 2025",£3.00,,Transportation,10,,No
+Wipers * 2,No,"October 7, 2025",£2.00,,Groceries,10,,No
+Hand Wash,No,"October 13, 2025",£1.00,,Groceries,10,,No
+Ice-cream; Popcorn; Jaffa cake; Chocolate *2; Crisps * 2 + Lindt,No,"October 13, 2025",£15.25,,Snacks,10,,No
+Bread + Sausage + ?,No,"October 13, 2025",£4.70,,Food,10,,No
+,No,,,,,,,No
+Toothplate + Toothbrush,No,"October 13, 2025",£5.25,,Groceries,10,,No
+Tram,No,"October 11, 2025",£3.50,,Transportation,10,,No
+Beef Corned; Veg; Rice; Cheese; Gyoza,No,"October 13, 2025",£10.42,,Food,10,,No
+Eggs (6) + Raw Milk (1L) + Raw Milkshake (500g),No,"October 17, 2025",£5.00,,Food,10,,No
+Peach Ice tea,No,"October 13, 2025",£2.00,,Drink,10,,No
+Pork Belly; Beef Meatball; Veg,No,"October 19, 2025",£9.50,,Food,10,,No
+Gelato,No,"October 17, 2025",£2.95,,Snacks,10,,No
+Snakes,No,"October 19, 2025",£2.68,,Snacks,10,,No
+Lunch Dim Sum,No,"October 18, 2025",£20.00,,Eat Out,10,,No
+Sanitizer,No,"October 19, 2025",£4.00,,Groceries,10,,No
+Photo; Garlic Sausage; Bread,No,"October 19, 2025",£3.57,,Food,10,,No
+Seaweed; Noodles,No,"October 18, 2025",£8.28,,Food,10,,No
+,No,,,,,,,No
+"Chocolate Chips ",No,"October 19, 2025",£2.49,,Snacks,10,,No
+Sneak to HK,No,"October 22, 2025",£9.95,,Gift,10,,No
+,No,,,,Food,,,No
+"Tuna, Honey, Veg",No,"October 19, 2025",£5.57,,Food,10,,No
+Tea Bags,No,"October 22, 2025",£1.99,,Drink,10,,No
+Washing Powder,No,"October 19, 2025",£9.99,,C Groceries,10,,No
+Tiramisu + Ham for Oct 25,No,"October 22, 2025",£8.30,,Gathering,10,,No
+Toilet Paper,No,"October 19, 2025",£1.49,,C Groceries,10,,No
+Short Ribs,No,"October 22, 2025",£6.96,,Gathering,10,,No
+Chocolates,No,"October 22, 2025",£4.40,,Snacks,10,,No
+Milk; redcurrants; yoghurt; seafood stick;,No,"October 22, 2025",£6.84,,Food,10,,No
+"100 Things about cats ",No,"October 22, 2025",£4.99,,Groceries,10,,No
+Coca Cola,No,"October 22, 2025",£0.65,,Food,10,,No
+Sorbet; Chocolate,No,"October 22, 2025",£5.28,,Snacks,10,,No
+,No,,,,,,,No
+Chicken; Coriander; Can Soup; Bread; Ginger,No,"October 22, 2025",£5.44,,Food,10,,No
+Chocolate,No,"October 22, 2025",£1.99,,Gift,10,,No
+Panadol; flu medicine; pre-treat gel; throat candy; pedal bin bags,No,"October 22, 2025",£6.55,,Groceries,10,,No
+,No,,-£6.96,,,,,No
+Chocolate for Tina,No,"October 31, 2025",£9.50,,Gift,10,,No
+Body Lotion,No,"October 22, 2025",£3.99,,Groceries,10,,No
+Rent,No,"November 1, 2025",£495.00,,Housing,11,,Yes
+Rubbish Bag,No,"October 22, 2025",£2.99,,C Groceries,10,,No
+Peach Liquid; Mangajo,No,"October 22, 2025",£10.95,,Drink,10,,No
+Beansprout; Bread; Eggs,No,"October 31, 2025",£4.30,,Food,10,,No
+Facial Tissue,No,"October 31, 2025",£3.00,,C Groceries,10,,No
+Diesel,No,"October 25, 2025",£21.08,,Car Related,10,136.9 p/l,No
+Hotpot,No,"October 25, 2025",£15.50,,Gathering,10,,No
+Veg,No,"October 31, 2025",£3.55,,Food,10,,No
+VOXI,No,"November 1, 2025",£10.00,,Subscription,11,,No
+"Sanitary Pad ",No,"October 31, 2025",£9.00,,Groceries,10,,No
+Meal Deal; Veg; Onion,No,"October 25, 2025",£6.18,,Food,10,,No
+Snack; Ice-cream,No,"October 31, 2025",£8.97,,Snacks,10,,No
+Hob Cleaner,No,"October 31, 2025",£3.20,,C Groceries,10,,No
+GPT,No,"November 1, 2025",£18.19,,Subscription,11,,Yes
+Cereal; Veg; Ginger,No,"October 31, 2025",£2.89,,Food,10,,No
+Egg; Milk; Meat,No,"October 25, 2025",£6.73,,Food,10,,No
+Rice Matcha Drink,No,"November 2, 2025",£1.58,,Drink,11,,No
+"Pickle ",No,"November 2, 2025",£0.29,,Food,11,,No
+Peach Ice Tea,No,"October 31, 2025",£2.00,,Drink,10,,No
+"Popcorn ",No,"November 2, 2025",£1.19,,Snacks,11,,No
+Hand Wash Liquid,No,"October 31, 2025",£5.50,,Groceries,10,,No
+Dinner,No,"October 26, 2025",£10.40,,Gathering,10,,No
+RAC,No,"November 1, 2025",£2.00,,Car Related,11,,No
+Lunch,No,"October 26, 2025",£14.80,,Eat Out,10,,No
+Fruit Snack,No,"November 2, 2025",£1.75,,Gift,11,,No
+"Sanitary Pads ",No,"November 2, 2025",£3.45,,Groceries,11,,No
+Diesel,No,"November 6, 2025",£50.06,,Car Related,11,,No
+Werthers Cream*2; Jakemans*5,No,"November 2, 2025",£5.95,,Gift,11,,No
+Beer,No,"November 2, 2025",£5.49,,Drink,11,,No
+Chili; Coriander;?,No,"November 2, 2025",£2.91,,Food,11,,No
+Sources,No,"October 18, 2025",£8.60,,Groceries,10,,No
+Meat Snack,No,"November 2, 2025",£15.42,,Gift,11,,No
+Cucumber; Bread; Salad; Evaporated Milk,No,"November 2, 2025",£2.39,,Food,11,,No
+Crisps,No,"November 2, 2025",£3.00,,Snacks,11,,No
+Jellycat for Rika,No,"November 8, 2025",£46.00,,Gift,11,,No
+,No,,,,,,,No
+Medicine to delay period,No,"November 7, 2025",£29.00,,Others,11,,No
+,No,,,,,,,No
+Candies; Snakes; ?,No,"November 6, 2025",£18.07,,Gift,11,,No
+Waitrose Snacks,No,"November 6, 2025",£27.50,,Gift,11,,No
+,No,,,,,,,No
+,No,,,,,,,No
+ICloud,No,"November 1, 2025",£2.99,,Subscription,11,,No
+,No,,,,,,,No
+Jellycat For Hilary,No,"November 8, 2025",£35.00,,Gift,11,,No
+Aldi ?,No,"November 7, 2025",£11.18,,Gift,11,,No
+Lip Balm; Cream; Body Lotion,No,"November 9, 2025",£38.95,,Gift,11,,No
+,No,,,,,,,No
+Tesco Unibond ReNew; Dehumidifier,No,"November 6, 2025",£14.27,,Groceries,11,,No
+6 Pence Coins * 2,No,"November 2, 2025",£10.79,,Gift,11,,No
+Chicken; Eggs; Bread,No,"November 6, 2025",£6.45,,Food,11,,No
+Train from Preston to MAN Airport,No,"November 10, 2025",£10.49,,Transportation,11,,Yes
+Cookie for Hang,No,"November 11, 2025",£14.95,,Gift,11,,No
+Eye Drops,No,"November 9, 2025",£22.46,,Groceries,11,,No
+Diesel,No,"November 9, 2025",£22.38,,Car Related,11,,No
+Car Parking,No,"November 9, 2025",£2.00,,Car Related,11,,No
+Unreasonable Charge for Luggage,No,"November 11, 2025",£38.00,,Transportation,11,,No
+Boots Body Lotion; Veet Hair Removal,No,"November 9, 2025",£15.00,,Gift,11,,No
+Uber from Home to Preston Train Station,No,"November 11, 2025",£20.95,,Transportation,11,,Yes
+Dinner,No,"November 8, 2025",£11.70,,Gathering,11,,No
+"Dehumidifier *5 ",No,"November 9, 2025",£5.00,,Groceries,11,,No
+Waitrose Crisps; Snacks,No,"November 9, 2025",£19.15,,Gift,11,,No
+燒賣,No,"November 22, 2025",,HK$10.00,Eat Out,11,,No
+Brunch,No,"November 22, 2025",,HK$42.00,Eat Out,11,,No
+“Unknown Box”,No,"November 22, 2025",,HK$39.90,Gift,11,,No
+Body Lotion; Veet Hair Removal Cream; ?,No,,,,,,,No
+Octopus Card Recharge,No,"November 18, 2025",,HK$100.00,Others,11,,No
+Lottery,No,"November 23, 2025",,HK$20.00,Others,11,,No
+Lunch,No,"November 23, 2025",,HK$100.00,Eat Out,11,,No
+Sushi,No,"November 27, 2025",,HK$37.60,Food,11,,No
+夏茶,No,"November 22, 2025",,HK$37.00,Drink,11,,No
+章魚燒,No,"November 23, 2025",,HK$36.00,Eat Out,11,,No
+楊枝甘露,No,"November 22, 2025",,HK$48.00,Drink,11,,No
+Cold Noodles *2,No,"December 13, 2025",,HK$70.00,Eat Out,12,,No
+Dress,No,"December 13, 2025",,HK$60.00,Clothing,12,,No
+,No,,,,,,,No
+VPN,No,"December 2, 2025",,HK$439.34,Subscription,12,,Yes
+,No,,,,Gift,,,No
+Share of Gift for Anna,No,"December 13, 2025",,HK$78.00,Gift,12,,No
+Drinks,No,"December 13, 2025",,HK$18.00,Drink,12,,No
+Heat tech for Tina,No,"November 27, 2025",,HK$198.00,Gift,11,,No
+Supermarket Shopping,No,"November 26, 2025",,HK$331.30,Food,11,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Charging Cable,No,"December 13, 2025",,HK$9.00,Groceries,12,,No
+Locker,No,"December 13, 2025",,HK$5.20,Others,12,,No
+雞蛋仔,No,"December 13, 2025",,HK$25.00,Eat Out,12,,No
+Lunch,No,"December 14, 2025",,HK$52.00,Eat Out,12,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Eye Exam,No,"December 1, 2025",,HK$680.00,Others,12,,No
+Rent,No,"December 1, 2025",£495.00,,Housing,12,,Yes
+Doll for Eunice,No,"December 13, 2025",,HK$159.90,Gift,12,,No
+Hotel,No,"December 13, 2025",,HK$271.61,Others,12,,No
+夾公仔,No,"December 13, 2025",,HK$10.00,Others,12,,No
+SushiRo,No,"November 29, 2025",,HK$279.00,Eat Out,11,,No
+,No,,,,,,,No
+,No,,,,,,,No
+Lunch,No,"December 17, 2025",,HK$98.00,Eat Out,12,,No
+Alumni Clothing,No,"December 17, 2025",,HK$136.00,Clothing,12,,No
+Snacks for Rika,No,"December 20, 2025",,HK$29.70,Gift,12,,No
+Snacks,No,"December 20, 2025",,HK$59.70,Snacks,12,,No
+Clothes,No,"December 20, 2025",,HK$936.00,Clothing,12,,No
+Noodles,No,"December 20, 2025",,HK$21.80,Food,12,,No
+Dinner,No,"December 18, 2025",,HK$180.00,Eat Out,12,,No
+Drink & Snack,No,"December 19, 2025",,HK$50.80,Drink,12,,No
+Charger for Tina,No,"December 20, 2025",,HK$280.00,Gift,12,,No
+,No,,,,,,,No
+湯圓,No,"December 21, 2025",,HK$18.00,Food,12,,No
+,No,,,,,,,No
+燒賣,No,"December 21, 2025",,HK$11.00,Food,12,,No
+回鄉證,No,"December 20, 2025",,HK$720.00,Others,12,,No
+Candies,No,"December 19, 2025",,HK$48.00,Snacks,12,,No
+飯團,No,"December 21, 2025",,HK$28.80,Food,12,,No
+,No,,,,,,,No
+盲盒 for Rika,No,"December 23, 2025",,HK$82.00,Gift,12,,No
+魚尚,No,"December 19, 2025",,HK$40.80,Food,12,,No
+"Toner and Spray for Tina ",No,"December 26, 2025",,HK$133.00,Gift,12,,No
+Dinner,No,"December 23, 2025",,HK$70.00,Gathering,12,,No
+盲盒 for Ca,No,"December 23, 2025",,HK$50.00,Gift,12,,No
+Octopus Card Apple App,No,"December 25, 2025",,HK$150.00,Transportation,12,,No
+Lip Balm,No,"December 26, 2025",,HK$88.00,Appearance Related,12,,No
+"Dentist - XRay, Exam, Medicine ",Yes,"January 2, 2026",,HK$750.00,Health,1,,No
+Clothings,No,"December 26, 2025",,HK$270.00,Clothing,12,,No
+,No,,,,,,,No
+Dentist - Filling,Yes,"January 6, 2026",,HK$950.00,Health,1,,No
+Chiikawa Doll,Yes,"January 6, 2026",,HK$58.00,Others,1,,No
+Melody Toy for Alice,Yes,"January 6, 2026",,HK$20.00,Gift,1,,No
+輝春,No,"January 4, 2026",,HK$14.00,Others,1,,No
+蟹子,No,"January 4, 2026",,HK$25.30,Food,1,,No
+牛丸,No,"January 4, 2026",,HK$14.00,Food,1,,No
+Crisps,No,"January 7, 2026",,HK$20.00,Snacks,1,,No
+Tissue,No,"January 7, 2026",,HK$67.90,Groceries,1,,No
+CupNoodles,No,"January 5, 2026",,HK$69.40,Gathering,1,,No
+Snakes; 化妝綿； Hair Refresher,No,"January 8, 2026",,HK$40.00,Snacks,1,,No
+化妝綿； Hair Refresher,No,"January 8, 2026",,HK$44.00,Others,1,,No
+Shampoo,No,"January 6, 2026",,HK$451.68,Groceries,1,,No
+7-11 Food,No,"January 8, 2026",,HK$28.00,Food,1,,No
+Ice-cream,Yes,"January 8, 2026",,HK$30.00,Snacks,1,,No
+Street Food,No,"January 6, 2026",,HK$26.00,Food,1,,No
+Drinks,No,"January 6, 2026",,HK$20.00,Drink,1,,No
+Drink,No,"January 6, 2026",,HK$8.50,Drink,1,,No
+Transportion/ Octopus Card Consumption,No,"January 8, 2026",,HK$200.00,Transportation,1,,No
+Gift for Zoe,No,"January 3, 2026",,HK$85.00,Gift,1,,No
+Shenzhen Trip,No,"January 8, 2026",,HK$312.00,Others,1,,No
+Board Game * 5,Yes,"January 9, 2026",,HK$536.00,Others,1,,No
+Drink,No,"January 9, 2026",,HK$9.50,Drink,1,,No
+Dental Foss,No,"January 9, 2026",,HK$23.90,Groceries,1,,No
+粉絲＋紫菜,No,"January 9, 2026",,HK$29.90,Food,1,,No
+Egg Rolls,Yes,"January 11, 2026",,HK$134.00,Snacks,1,,No
+甘草檸檬,Yes,"January 11, 2026",,HK$20.00,Snacks,1,,No
+飲茶,Yes,"January 11, 2026",,HK$46.00,Eat Out,1,,No
+揮春,No,"January 11, 2026",,HK$47.00,Groceries,1,,No
+腸粉,Yes,"January 11, 2026",,HK$5.00,Food,1,,No
+egg trat,No,"January 11, 2026",,HK$10.00,Food,1,,No
+Star Ferry Toy,No,"January 15, 2026",,HK$89.00,Gift,1,,No
+Dinner,No,"January 14, 2026",,HK$117.00,Gathering,1,,No
+Train,No,"January 16, 2026",£10.99,,Transportation,1,,No
+Uber,No,"January 16, 2026",£11.91,,Transportation,1,,No
+"Dessert ",No,"January 11, 2026",,HK$39.00,Eat Out,1,,No
+Lunch,Yes,"January 13, 2026",,HK$228.00,Eat Out,1,,No
+Toilet Paper,No,"January 17, 2026",£2.48,,C Groceries,1,,No
+Month rinse,No,"January 17, 2026",£4.78,,Groceries,1,,No
+Toilet Cleaning,No,"January 17, 2026",£2.46,,Groceries,1,,No
+Food,No,"January 17, 2026",£9.53,,Food,1,,No
+Food,No,"January 17, 2026",£11.64,,Food,1,,No
+Burger,No,"January 21, 2026",£3.00,,Food,1,,No
+Brita Filter Refill,No,"January 21, 2026",£23.00,,Groceries,1,,No
+"Month Wash ",No,"January 21, 2026",£7.49,,Groceries,1,,No
+Green Pepper; Cereal,No,"January 21, 2026",£3.17,,Food,1,,No
+Rice; Beef; Veg,No,"January 21, 2026",£7.42,,Food,1,,No
+Cooking Oil,No,"January 21, 2026",£2.75,,C Groceries,1,,No
+Dinner,No,"January 24, 2026",£15.00,,Gathering,1,,No
+Rent,No,"February 1, 2026",£495.00,,Housing,2,,Yes
+Rent,No,"January 1, 2026",£495.00,,Housing,1,,Yes
+Lotion,No,"January 26, 2026",£1.52,,Groceries,1,,No
+Food,No,"January 28, 2026",£25.79,,Food,1,,No
+Lunch,No,"January 31, 2026",£16.50,,Eat Out,1,,No
+Chinese Supermarket,No,"January 31, 2026",£16.60,,Food,1,,No
+BurgerKing,No,"February 1, 2026",£12.00,,Dating,2,,No
+Wetherspoon,No,"February 1, 2026",£11.75,,Dating,2,,No
+The RAC,No,"February 1, 2026",£2.00,,Car Related,2,,No
+The RAC,No,"January 1, 2026",£2.00,,Car Related,1,,No
+Rubbish Bag; Kitchen Towel,No,"February 2, 2026",£3.09,,C Groceries,2,,No
+Ice-cream; Crisps; Rice Cake,No,"February 2, 2026",£6.03,,Snacks,2,,No
+Veg; Chicken; Egg; Fruits,No,"February 2, 2026",£18.06,,Food,2,,No
+Day and Night Cream; Shampoo,No,"February 4, 2026",£22.98,,Groceries,2,,No
+Apple Juice,No,"February 4, 2026",£2.96,,Drink,2,,No
+Toilet Paper,No,"February 4, 2026",£1.39,,C Groceries,2,,No
+Wiper,No,"February 4, 2026",£4.18,,Groceries,2,,No
+Sanitary Pad,No,"February 4, 2026",£5.00,,Groceries,2,,No
+Hair Removal Cream Kit,No,"February 4, 2026",£7.49,,Appearance Related,2,,No
+GPT,No,"February 1, 2026",£17.47,,Subscription,2,,Yes
+Life in the UK,No,"February 9, 2026",£50.00,,UK Settlement,2,,No
+B1 English Test,No,"February 9, 2026",£150.00,,UK Settlement,2,,No
+"Tissue Box ",No,"February 10, 2026",£0.84,,C Groceries,2,,No
+Cheese Slides,No,"February 10, 2026",£0.89,,Food,2,,No
+Bags*2,No,"February 10, 2026",£2.60,,Others,2,,No
+Toilet Block + Cotton Bugs Tub,No,"February 10, 2026",£2.00,,Groceries,2,,No
+Sponges,No,"February 10, 2026",£1.00,,C Groceries,2,,No
+Snake,No,"February 10, 2026",£2.00,,Snacks,2,,No
+Bread + Chicken Wings,No,"February 10, 2026",£4.15,,Food,2,,No
+Veg,No,"February 10, 2026",£2.82,,Food,2,,No
+Food,No,"February 10, 2026",£12.23,,Food,2,,No
+Lunch and Parking With Bi,Yes,"February 14, 2026",£18.20,,Dating,2,,No
+"Dinner ",No,"February 14, 2026",£9.36,,Gathering,2,,No
+Crisps,No,"February 17, 2026",£3.00,,Snacks,2,,No
+Pistachio,No,"February 17, 2026",£5.25,,Snacks,2,,No
+Veg; Fruit,No,"February 17, 2026",£5.02,,Food,2,,No
+Dental Floss,No,"February 17, 2026",£1.49,,Groceries,2,,No
+Bread; Pork Belly; Veg,No,"February 17, 2026",£8.00,,Food,2,,No
+Prawn Cracker,No,"February 17, 2026",£1.00,,Snacks,2,,No
+KFC Hot Wings,No,"February 20, 2026",£1.79,,Eat Out,2,,No
+MOT,No,"February 20, 2026",£45.00,,Car Related - Annual,2,,No
+Full Service + Replacement,No,"February 20, 2026",£330.00,,Car Related - Annual,2,,No
+Diesel @ 135.9 P/L,No,"February 20, 2026",£25.70,,Car Related,2,,No
+"Cereal, Crisps",No,"February 20, 2026",£4.25,,Snacks,2,,No
+Sparking Water,No,"February 20, 2026",£2.50,,Drink,2,,No
+Veg for LH,No,"February 21, 2026",£1.29,,LH,2,,No
+Burger King,No,"February 22, 2026",£12.00,,Dating,2,,No
+Car Wash,No,"February 22, 2026",£7.50,,Car Related,2,,No
+Beef Tendon for LH,No,"February 23, 2026",£4.00,,LH,2,,No
+Pork Belly,No,"February 23, 2026",£4.28,,Food,2,,No
+Drinks for LH,No,"February 23, 2026",£1.00,,LH,2,,No
+Toilet Paper and Tissue,No,"February 23, 2026",£2.08,,C Groceries,2,,No
+Soya Milk and Pudding,No,"February 23, 2026",£2.25,,Snacks,2,,No
+Cream For LH,No,"February 28, 2026",£12.82,,LH,2,,No
+Rubbish Bags,No,"February 28, 2026",£2.99,,C Groceries,2,,No
+Rent,No,"March 1, 2026",£495.00,,Housing,3,,No
+RAC,No,"March 1, 2026",£2.00,,Car Related,3,,No
+Food,No,"March 1, 2026",£9.83,,Food,3,,No
+Diesel,No,"March 1, 2026",£36.34,,Car Related,3,,No
+Sparkling Water,No,"March 6, 2026",£1.19,,Drink,3,,No
+Feminine Wash,No,"March 6, 2026",£1.99,,Groceries,3,,No
+Mini Lolly; Pistachios,No,"March 6, 2026",£4.74,,Snacks,3,,No
+Veg; Bread; Freeze Prawn; Stock Pots,No,"March 6, 2026",£4.46,,Food,3,,No
+Handwash; Mouth Rinses (2); Toothpaste,No,"March 6, 2026",£13.77,,Groceries,3,,No
+Milk for LH,No,"March 6, 2026",£2.38,,LH,3,,No
+Sausage; Eggs; Milk,No,"March 6, 2026",£8.28,,Food,3,,No
+Dinner,No,"March 8, 2026",£9.60,,Gathering,3,,No
+Diesel @ 140.9,No,"March 8, 2026",£43.37,,Car Related,3,,No
+Veg,No,"March 12, 2026",£3.87,,Food,3,,No
+Gift For Alan,No,"March 12, 2026",£1.99,,Gift,3,,No
+Biscuits,No,"March 12, 2026",£1.99,,Snacks,3,,No
+Cola,No,"March 12, 2026",£1.69,,Gift,3,,No
+Snacks,No,"March 12, 2026",£3.14,,Snacks,3,,No
+Veg; Chicken; Food,No,"March 12, 2026",£10.33,,Food,3,,No
+Gift for LH,No,"March 12, 2026",£1.99,,LH,3,,No
+H & B Supplements,No,"March 15, 2026",£61.44,,Health,3,,No
+Dinner,No,"March 14, 2026",£11.00,,Gathering,3,,No
+Gloves; Car Clean; Battery; Body Oil Spary,No,"March 16, 2026",£19.21,,Groceries,3,,No
+Sanitary Pads,No,"March 16, 2026",£24.00,,Groceries,3,15 GBP Gift Card from Top Cash Back,No
+Visionace,No,"March 16, 2026",£19.50,,Health,3,,No
+Sparkling Water,No,"March 16, 2026",£1.48,,Drink,3,,No
+UK ENIC Statement of Comparability,No,"March 18, 2026",£69.60,,Others,3,,No
+Body Lotion and Spray,No,"March 17, 2026",£13.01,,Groceries,3,,No
+Peach Iced Tea,No,"March 17, 2026",£2.10,,Drink,3,,No
+Chicken Wings and Pineapple,No,"March 17, 2026",£2.65,,Food,3,,No
+"Eggs, Chicken Nuggets; Veg; Kiwi; Easy Peelers",No,"March 17, 2026",£8.06,,Food,3,,No
+Dried Fruits,No,"March 17, 2026",£6.48,,Snacks,3,,No
+Bread;Toilet Paper; Pork; Veg,No,"March 17, 2026",£7.21,,Food,3,,No
+Cola,No,"March 17, 2026",£1.69,,Drink,3,,No
+Crisps,No,"March 17, 2026",£1.49,,Snacks,3,,No
+GPT,No,"March 1, 2026",£17.84,,Subscription,3,,No
+Voxi,No,"March 1, 2026",£10.00,,Subscription,3,,No
+Beer for Will,No,"March 24, 2026",£3.00,,Gift,3,,No
+Rent,No,"April 1, 2026",£495.00,,Housing,4,,Yes
+Cooking Oil (2); Soy Sauce,No,"March 25, 2026",£7.62,,C Groceries,3,,No
+Ice-cream,No,"March 25, 2026",£3.56,,Snacks,3,,No
+Cold Capsules (2) + Jakemans Throat,No,"March 25, 2026",£3.21,,Others,3,,No
+Crisp Breads; Cheese Twists,No,"March 25, 2026",£2.45,,Snacks,3,,No
+Food,No,"March 25, 2026",£11.52,,Food,3,,No
+Car H7 Light Bulb (2),No,"March 25, 2026",£10.98,,Car Related,3,,No
+Wipes (2),No,"March 29, 2026",£0.86,,Groceries,3,,No
+Food,No,"March 29, 2026",£4.05,,Food,3,,No
+Milk,No,"March 31, 2026",£1.19,,LH,3,,No
+Toner,No,"March 31, 2026",£6.30,,Groceries,3,,No
+Drink,No,"March 31, 2026",£0.75,,Drink,3,,No
+Snake; Biscuits (2); Cup Noodles,No,"March 31, 2026",£4.14,,Snacks,3,,No
+Ice-cream; Snake,No,"March 31, 2026",£4.28,,Snacks,3,,No
+Veg,No,"March 31, 2026",£1.98,,Food,3,,No
+GPT,No,"April 1, 2026",£18.09,,Subscription,4,,Yes
+VOXI,No,"April 1, 2026",£10.00,,Subscription,4,,No
+RAC,No,"April 1, 2026",£2.00,,Car Related,4,,No
+Noodles; Miso; Tofu,No,"April 5, 2026",£9.60,,Food,4,,No
+Bread,No,"April 6, 2026",£0.58,,Food,4,,No
+Dental Floss,No,"April 6, 2026",£5.98,,Groceries,4,,No
+Cup Noodles,No,"April 6, 2026",£1.00,,Food,4,,No
+Egg; King Prawn; Veg,No,"April 6, 2026",£7.32,,Food,4,,No
+Bread; Seafood Stick,No,"April 8, 2026",£1.86,,Food,4,,No
+Crisps,No,"April 8, 2026",£1.19,,Snacks,4,,No
+Pork; Veg,No,"April 8, 2026",£5.63,,Food,4,,No
+Diesel @ 181.9 p/L,No,"April 14, 2026",£56.63,,Car Related,4,,No
+Peach Ice tea,No,"April 14, 2026",£2.10,,Drink,4,,No
+Chocolate,No,"April 14, 2026",£1.69,,Snacks,4,,No
+Ice-cream,No,"April 14, 2026",£4.69,,Snacks,4,,No
+Toilet Paper; Tissue Box,No,"April 14, 2026",£3.78,,C Groceries,4,,No
+Cereal; Crisps (3),No,"April 14, 2026",£6.65,HK$6.65,Snacks,4,,No
+Veg; Fruit; Chicken Wings; Chicken Thigh; Sausages; Eggs,No,"April 14, 2026",£31.31,,Food,4,,No
+Lidl Coke,No,"April 14, 2026",£1.69,,Drink,4,,No
+Bread,No,"April 19, 2026",£1.20,,Food,4,,No
+Car Insurance (20 May 26 - 19 May 27),No,"April 23, 2026",£750.99,,Car Related - Annual,4,,No
+Road Tax (1 May 26 - 30 April 27),No,"April 23, 2026",£170.00,,Car Related - Annual,4,,No
+Sun Cream For LH,No,"April 25, 2026",£2.89,,LH,4,,No
+Advocaat For LH,No,"April 25, 2026",£11.50,,LH,4,,No
+Advocaat,No,"April 25, 2026",£11.50,,Drink,4,,No
+Noodle for LH,No,"April 25, 2026",£1.00,,LH,4,,No
+Noodles (2),No,"April 25, 2026",£2.00,,Food,4,,No
+Parking At Leyland,No,"April 25, 2026",£1.00,,Car Related,4,,No
+Pork Belly and Veg,No,"April 26, 2026",£4.41,,Food,4,,No
+Rent,No,"May 1, 2026",£495.00,,Housing,5,,Yes
+RAC,No,"May 1, 2026",£2.00,,Car Related,5,,No
+ChatGPT,No,"May 1, 2026",£17.82,,Subscription,5,,Yes
+VOXI,No,"May 1, 2026",£10.00,,Subscription,5,,No
+"Beef, Burger, Veg, Fruit",No,"May 2, 2026",£13.15,,Food,5,,No
+Kitchen Towel,No,"May 2, 2026",£3.00,,C Groceries,5,,No
+Coconut Drink,No,"May 2, 2026",£1.75,,Drink,5,,No
+"Veg, Fruit",No,"May 2, 2026",£3.89,,Food,5,,No
+"Veg, Pork, Bread, Milk, Prawn",No,"May 2, 2026",£16.80,,Food,5,,No
+Birthday Cake for LH,No,"May 3, 2026",£37.00,,LH,5,,No
+Bread,No,"May 6, 2026",£0.89,,Food,5,,No
+Bueno + Cheese Snake,No,"May 6, 2026",£3.16,,Snacks,5,,No
+Eye Drop (2),No,"May 10, 2026",£22.48,,Groceries,5,,No
+Sanitary Pad (3),No,"May 10, 2026",£4.50,,Groceries,5,,No
+Peach Iced Tea,No,"May 10, 2026",£2.10,,Drink,5,,No
+Chicken Wings,No,"May 10, 2026",£1.65,,Food,5,,No
+Veg,No,"May 10, 2026",£3.90,,Food,5,,No
+Prawn Crackers; Ice-cream; Chocolate,No,"May 10, 2026",£5.87,,Snacks,5,,No
+Mango,No,"May 10, 2026",£0.81,,Food,5,,No
+Bread; Noodles; Pork Belly; Wakame Salad; Rice Noodles; Tofu,No,"May 10, 2026",£11.56,,Food,5,,No
+Japanese Beer,No,"May 10, 2026",£5.49,,Drink,5,,No
+Snacks,No,"May 10, 2026",£4.39,,Snacks,5,,No
+Matcha Drink Powder,No,"May 10, 2026",£2.49,,Drink,5,,No
+Burger King Dinner,No,"May 11, 2026",£5.99,,Eat Out,5,,No
+Cup noodles (2),No,"May 11, 2026",£2.00,,Food,5,,No
+Crisps,No,"May 11, 2026",£0.10,,Gift,5,,No
+Prawn Cracker,No,"May 11, 2026",£0.99,,Gift,5,,No
+Coriander,No,"May 11, 2026",£0.50,,Food,5,,No
+Hotpot,No,"May 16, 2026",£13.50,,Gathering,5,,No
+Gift for Gaga,No,"May 16, 2026",£4.90,,Gift,5,,No
+Snack for Gathering,No,"May 16, 2026",£0.99,,Gift,5,,No
+Gift for LH,No,"May 16, 2026",£0.99,,LH,5,,No
+Peach Ice Tea,No,"May 16, 2026",£2.10,,Drink,5,,No
+"Clothes Hand Wash Liquid ",No,"May 16, 2026",£5.50,,Groceries,5,,No
+Ice-cream,No,"May 16, 2026",£2.99,,Snacks,5,,No
+Meet; Food,No,"May 16, 2026",£15.68,,Food,5,,No
+Clothes (2),No,"May 23, 2026",£18.38,,Clothing,5,,No
+Egg; Garlic; Ginger; Cereal,No,"May 23, 2026",£7.64,,Food,5,,No
+Discount from coupon,No,"May 23, 2026",-£0.63,,,5,,No
+Medicine,No,"May 23, 2026",£0.70,,Groceries,5,,No
+Mouthwash; Toothpaste (2); Dental Floss,No,"May 23, 2026",£8.86,,Groceries,5,,No
+Toilet Roll,No,"May 23, 2026",£4.00,,C Groceries,5,,No
+Food,No,"May 23, 2026",£12.61,,Food,5,,No
+Rent,No,"June 1, 2026",£495.00,,Housing,6,,Yes
+Tesco Meal Deal,No,"May 24, 2026",£3.85,,Eat Out,5,,No
+,No,"May 24, 2026",,,,5,,No
+Mirin; Cooking Sake; Frozen Sausages; Fish Ball,No,"May 24, 2026",£14.90,,Food,5,,No
+Tissue Boxes (2),No,"May 24, 2026",£2.00,,C Groceries,5,,No
+Cup Noodle (6); Instant noodles (4),No,"May 24, 2026",£10.10,,Food,5,,No
+"Sainsbury Meal Deal ",No,"May 24, 2026",£3.95,,Eat Out,5,,No
+Coconut Milk; Kiwi; ;  Strawberries; Veg; Watermelon,No,"May 24, 2026",£9.73,,Food,5,,No
+Coconut Macha; Juice,No,"May 24, 2026",£3.50,,Drink,5,,No
+Coconut Macha,No,"May 24, 2026",£1.75,,LH,5,,No
+Coconut Macha,No,"May 24, 2026",£1.75,,Gift,5,,No
+Toothbrush,No,"May 5, 2026",£121.90,,LH,5,,No
+Toothbrush for Tina,No,"May 5, 2026",£58.00,,Gift,5,,No
+Shampoo + Bady Wash + Femfresh,No,"May 25, 2026",£9.06,,Groceries,5,,No
+https://www.hollandandbarrett.com/shop/product/vitabiotics-visionace-tablets-60080170,No,"May 25, 2026",£12.28,,Health,5,,No
+H&B Snacks,No,"May 25, 2026",£12.10,,Snacks,5,,No

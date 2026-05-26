@@ -6,6 +6,8 @@ This is a personal expense tracker for one user.
 The app should be accessible from both MacBook and iPhone using a browser.
 It will be built with Python 3.11+ and Streamlit, using Supabase PostgreSQL as the live database and CSV export as the backup method.
 
+For the current stage, focus on expenses only. Do not mix income and expense handling until the user explicitly requests that later.
+
 ## Cost constraint
 
 The project should aim to run on free tiers where possible.
@@ -114,12 +116,11 @@ Use a PostgreSQL trigger or explicit application logic to maintain `updated_at` 
 
 For V1, `payment_method` and `notes` may be optional unless a milestone explicitly requires otherwise.
 
-Report logic must treat amounts consistently:
+Report logic for the current expense-only stage must treat amounts consistently:
 
-- income increases balance
-- expense decreases balance
 - stored amounts are positive numbers
-- `transaction_type` determines the sign in calculations
+- expenses reduce the running balance in reports
+- do not introduce a `transaction_type` field unless the user later asks to support income as well
 
 ## Secrets and credentials
 
