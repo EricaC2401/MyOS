@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -60,12 +60,22 @@ def _parse_date(value: Any, field_name: str) -> date:
     if value is None:
         raise ValidationError(f"{field_name} is required.")
 
+    normalized = str(value).strip()
+
     try:
-        return date.fromisoformat(str(value).strip())
-    except ValueError as exc:
-        raise ValidationError(
-            f"{field_name} must use the YYYY-MM-DD date format."
-        ) from exc
+        return date.fromisoformat(normalized)
+    except ValueError:
+        pass
+
+    for date_format in ("%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.strptime(normalized, date_format).date()
+        except ValueError:
+            continue
+
+    raise ValidationError(
+        f"{field_name} must use YYYY-MM-DD or a month-name format like May 2, 2026."
+    )
 
 
 def _parse_decimal(value: Any, field_name: str, *, required: bool) -> Decimal | None:

@@ -50,6 +50,20 @@ def test_validate_expense_transaction_defaults_missing_category() -> None:
     assert transaction.notes is None
 
 
+def test_validate_expense_transaction_accepts_month_name_date_format() -> None:
+    transaction = validate_expense_transaction(
+        {
+            "transaction_date": "May 2, 2026",
+            "description": "Coffee",
+            "amount_gbp": "3.50",
+            "tax_deductable": False,
+            "cash": False,
+        }
+    )
+
+    assert transaction.transaction_date == date(2026, 5, 2)
+
+
 def test_validate_expense_transaction_rejects_negative_amount() -> None:
     with pytest.raises(ValidationError, match="amount_gbp must be zero or greater"):
         validate_expense_transaction(
@@ -65,11 +79,12 @@ def test_validate_expense_transaction_rejects_negative_amount() -> None:
 
 def test_validate_expense_transaction_rejects_invalid_date_format() -> None:
     with pytest.raises(
-        ValidationError, match="transaction_date must use the YYYY-MM-DD date format"
+        ValidationError,
+        match="transaction_date must use YYYY-MM-DD or a month-name format like May 2, 2026",
     ):
         validate_expense_transaction(
             {
-                "transaction_date": "May 2, 2026",
+                "transaction_date": "2026/05/02",
                 "description": "Coffee",
                 "amount_gbp": "3.50",
                 "tax_deductable": False,

@@ -30,7 +30,7 @@ Detailed setup and usage instructions should live in `README.md`.
 
 ## Current status
 
-Current milestone: M8 Edit and delete transactions
+Current milestone: M10 Reports
 
 - M0 Project setup: Completed
 - M1 Supabase database setup: Completed
@@ -40,8 +40,8 @@ Current milestone: M8 Edit and delete transactions
 - M5 Manual transaction entry: Completed
 - M6 Transaction table view: Completed
 - M7 CSV export backup: Completed
-- M8 Edit and delete transactions: Not started
-- M9 CSV import: Not started
+- M8 Edit and delete transactions: Completed
+- M9 CSV import: Completed
 - M10 Reports: Not started
 - M11 Keyword-based category rules: Not started
 - M12 Mobile-friendly quick-add page: Not started

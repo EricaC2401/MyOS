@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+import time
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
 try:
-    from src.categorisation import get_default_categories
+    from src.categorisation import get_category_color, get_default_categories
     from src.db import (
         DatabaseConnectionError,
         StoredExpenseTransaction,
@@ -20,9 +22,17 @@ try:
         update_transaction,
     )
     from src.export_csv import build_export_filename, export_transactions_to_csv
+    from src.import_csv import CSVImportError, build_import_preview_rows, clean_import_csv
     from src.models import ValidationError, validate_expense_transaction
+    from src.reports import (
+        build_category_spending_report,
+        build_expense_report_summary,
+        build_largest_expenses_report,
+        build_monthly_trend_report,
+        filter_transactions_by_date_range,
+    )
 except ModuleNotFoundError:  # pragma: no cover - used when Streamlit runs src/app.py directly
-    from categorisation import get_default_categories
+    from categorisation import get_category_color, get_default_categories
     from db import (
         DatabaseConnectionError,
         StoredExpenseTransaction,
@@ -33,7 +43,15 @@ except ModuleNotFoundError:  # pragma: no cover - used when Streamlit runs src/a
         update_transaction,
     )
     from export_csv import build_export_filename, export_transactions_to_csv
+    from import_csv import CSVImportError, build_import_preview_rows, clean_import_csv
     from models import ValidationError, validate_expense_transaction
+    from reports import (
+        build_category_spending_report,
+        build_expense_report_summary,
+        build_largest_expenses_report,
+        build_monthly_trend_report,
+        filter_transactions_by_date_range,
+    )
 
 GRID_COLUMNS = (
     "Selected",
@@ -75,6 +93,15 @@ def build_expense_payload(
         "cash": cash,
         "notes": normalized_notes or None,
     }
+
+
+def show_temporary_success(message: str, *, seconds: int = 5) -> None:
+    """Show a success message briefly, then clear it."""
+
+    placeholder = st.empty()
+    placeholder.success(message)
+    time.sleep(seconds)
+    placeholder.empty()
 
 
 def get_category_filter_options(
@@ -140,7 +167,7 @@ def render_manual_entry_form() -> None:
         st.error(str(exc))
         return
 
-    st.success(
+    show_temporary_success(
         f"Saved expense #{stored.id}: {stored.description} for GBP {stored.amount_gbp:.2f}."
     )
 
@@ -188,6 +215,133 @@ def build_editor_rows(
             }
         )
     return rows
+
+
+def build_editor_totals_row(
+    transactions: list[StoredExpenseTransaction],
+) -> tuple[Decimal, Decimal]:
+    """Return the GBP and HKD totals for the editable expense grid."""
+
+    total_gbp = sum(
+        (Decimal(transaction.amount_gbp) for transaction in transactions),
+        Decimal("0.00"),
+    )
+    total_hkd = sum(
+        (
+            Decimal(transaction.expense_hkd)
+            for transaction in transactions
+            if transaction.expense_hkd is not None
+        ),
+        Decimal("0.00"),
+    )
+
+    return total_gbp, total_hkd
+
+
+def build_category_chart_df(category_rows: list[dict[str, object]]) -> pd.DataFrame:
+    """Build chart-ready category data with stable percentage sorting."""
+
+    category_chart_df = pd.DataFrame(
+        [
+            {"category": row["category"], "amount_gbp": float(row["amount_gbp"])}
+            for row in category_rows
+        ]
+    )
+    if category_chart_df.empty:
+        return category_chart_df
+
+    total_category_amount = category_chart_df["amount_gbp"].sum()
+    if total_category_amount > 0:
+        category_chart_df["percentage"] = (
+            category_chart_df["amount_gbp"] / total_category_amount * 100
+        )
+    else:
+        category_chart_df["percentage"] = 0.0
+
+    category_chart_df = category_chart_df.sort_values(
+        by=["percentage", "category"],
+        ascending=[False, True],
+        kind="stable",
+    ).reset_index(drop=True)
+    category_chart_df["percentage_label"] = category_chart_df["percentage"].map(
+        lambda value: f"{value:.1f}%"
+    )
+
+    return category_chart_df
+
+
+def build_pie_chart_df(
+    category_chart_df: pd.DataFrame, *, label_limit: int = 5
+) -> pd.DataFrame:
+    """Return full pie-chart data for the category pie chart."""
+
+    if category_chart_df.empty:
+        return category_chart_df
+
+    return category_chart_df.copy().reset_index(drop=True)
+
+
+def build_category_color_scale(categories: list[str]) -> alt.Scale:
+    """Return a stable Altair color scale for the current category order."""
+
+    return alt.Scale(
+        domain=categories,
+        range=[get_category_color(category) for category in categories],
+    )
+
+
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """Convert a hex color to rgba() for soft chip backgrounds."""
+
+    red = int(hex_color[1:3], 16)
+    green = int(hex_color[3:5], 16)
+    blue = int(hex_color[5:7], 16)
+    return f"rgba({red}, {green}, {blue}, {alpha:.2f})"
+
+
+def build_category_chip_html(category: str) -> str:
+    """Return one colored category chip that matches the chart palette."""
+
+    color = get_category_color(category)
+    background = _hex_to_rgba(color, 0.14)
+    border = _hex_to_rgba(color, 0.22)
+    return (
+        f"<span style='display:inline-flex; align-items:center; padding:0.2rem 0.65rem; "
+        f"border-radius:0.55rem; background:{background}; border:1px solid {border}; "
+        f"color:{color}; font-weight:600; white-space:nowrap;'>{category}</span>"
+    )
+
+
+def render_category_summary_table(category_chart_df: pd.DataFrame) -> None:
+    """Render the category totals table with chip-styled category names."""
+
+    table_rows = []
+    for row in category_chart_df.to_dict("records"):
+        table_rows.append(
+            "<tr>"
+            f"<td style='padding:0.65rem 0.75rem; border-bottom:1px solid #e5e7eb;'>{build_category_chip_html(row['category'])}</td>"
+            f"<td style='padding:0.65rem 0.75rem; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric:tabular-nums;'>GBP {Decimal(row['amount_gbp']):.2f}</td>"
+            f"<td style='padding:0.65rem 0.75rem; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric:tabular-nums;'>{row['percentage_label']}</td>"
+            "</tr>"
+        )
+
+    st.markdown(
+        (
+            "<div style='overflow-x:auto; margin-top:0.75rem;'>"
+            "<table style='width:100%; border-collapse:collapse; border:1px solid #e5e7eb; border-radius:0.75rem; overflow:hidden;'>"
+            "<thead>"
+            "<tr style='background:#f8fafc;'>"
+            "<th style='text-align:left; padding:0.7rem 0.75rem; border-bottom:1px solid #e5e7eb;'>Category</th>"
+            "<th style='text-align:right; padding:0.7rem 0.75rem; border-bottom:1px solid #e5e7eb;'>Amount (GBP)</th>"
+            "<th style='text-align:right; padding:0.7rem 0.75rem; border-bottom:1px solid #e5e7eb;'>Percentage</th>"
+            "</tr>"
+            "</thead>"
+            "<tbody>"
+            + "".join(table_rows)
+            + "</tbody></table></div>"
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _normalize_grid_row(row: dict[str, object]) -> dict[str, object]:
@@ -353,6 +507,20 @@ def render_transaction_grid() -> None:
     edited_rows = edited_df.to_dict("records")
     changed_rows = detect_changed_rows(original_rows, edited_rows)
     selected_ids = collect_selected_transaction_ids(edited_rows)
+    total_gbp, total_hkd = build_editor_totals_row(filtered_transactions)
+    totals_parts = [f"GBP {total_gbp:.2f}"]
+    if total_hkd:
+        totals_parts.append(f"HKD {total_hkd:.2f}")
+    totals_text = " | ".join(totals_parts)
+    st.markdown(
+        (
+            "<div style='text-align: right; color: #6b7280; font-size: 0.95rem; "
+            "margin-top: 0.35rem; margin-bottom: 0.35rem;'>"
+            f"<strong>Total:</strong> {totals_text}"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
 
     save_label = (
         f"Save Changes ({len(changed_rows)})" if changed_rows else "Save Changes"
@@ -460,6 +628,219 @@ def render_export_section() -> None:
     )
 
 
+def render_import_section() -> None:
+    """Render the CSV import flow without changing the editable grid behavior."""
+
+    st.subheader("CSV Import")
+    st.caption("Import expenses from a CSV file that matches the normalized sample format.")
+
+    uploaded_file = st.file_uploader(
+        "Upload expense CSV",
+        type=["csv"],
+        accept_multiple_files=False,
+        help="Use the current sample_expense.csv header format for V1 imports.",
+    )
+
+    if uploaded_file is None:
+        return
+
+    try:
+        imported_transactions = clean_import_csv(uploaded_file.getvalue())
+    except CSVImportError as exc:
+        st.error(str(exc))
+        return
+
+    st.warning(
+        "V1 does not perform full duplicate detection. Review the preview and confirm before importing."
+    )
+    st.caption(
+        f"Validated {len(imported_transactions)} expense row(s). Showing the first 5 row(s) below."
+    )
+    st.dataframe(
+        build_import_preview_rows(imported_transactions),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    confirm_import = st.checkbox(
+        "I understand that V1 does not perform full duplicate detection and want to insert these rows."
+    )
+    import_submitted = st.button(
+        "Import CSV Rows",
+        use_container_width=True,
+        disabled=not confirm_import,
+    )
+
+    if not import_submitted:
+        return
+
+    inserted_count = 0
+    for transaction in imported_transactions:
+        try:
+            insert_transaction(transaction)
+        except DatabaseConnectionError as exc:
+            st.error(f"Import stopped after {inserted_count} row(s): {exc}")
+            return
+        inserted_count += 1
+
+    st.success(f"Imported {inserted_count} expense row(s) successfully.")
+    st.rerun()
+
+
+def render_reports_section() -> None:
+    """Render the expense reports section."""
+
+    st.subheader("Reports")
+    st.caption("View monthly spending, category totals, largest expenses, and overall trend.")
+
+    try:
+        transactions = fetch_transactions()
+    except DatabaseConnectionError as exc:
+        st.error(str(exc))
+        return
+
+    if not transactions:
+        st.info("Save or import at least one expense before viewing reports.")
+        return
+
+    dates = [transaction.transaction_date for transaction in transactions]
+    min_date = min(dates)
+    max_date = max(dates)
+
+    report_col1, report_col2 = st.columns(2)
+    with report_col1:
+        start_date = st.date_input(
+            "Report from",
+            value=min_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="report_start_date",
+        )
+    with report_col2:
+        end_date = st.date_input(
+            "Report to",
+            value=max_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="report_end_date",
+        )
+
+    if start_date > end_date:
+        st.error("The report start date must be on or before the end date.")
+        return
+
+    filtered_transactions = filter_transactions_by_date_range(
+        transactions,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    if not filtered_transactions:
+        st.info("No expenses match the selected report date range.")
+        return
+
+    summary = build_expense_report_summary(filtered_transactions)
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    metric_col1.metric("Total spend", f"GBP {summary.total_spend:.2f}")
+    metric_col2.metric("Transactions", str(summary.transaction_count))
+    metric_col3.metric("Largest expense", f"GBP {summary.largest_expense:.2f}")
+
+    category_rows = build_category_spending_report(filtered_transactions)
+    trend_rows = build_monthly_trend_report(filtered_transactions)
+    largest_rows = build_largest_expenses_report(filtered_transactions)
+
+    st.markdown("**Spending by category**")
+    category_chart_df = build_category_chart_df(category_rows)
+    category_scale = build_category_color_scale(category_chart_df["category"].tolist())
+    category_chart_type = st.segmented_control(
+        "Category chart type",
+        options=["Bar", "Pie"],
+        default="Bar",
+        key="category_chart_type",
+    )
+    if category_chart_type == "Pie":
+        pie_chart_df = build_pie_chart_df(category_chart_df)
+        pie_chart_scale = build_category_color_scale(pie_chart_df["category"].tolist())
+        st.altair_chart(
+            alt.Chart(pie_chart_df)
+            .mark_arc()
+            .encode(
+                theta=alt.Theta("amount_gbp:Q", title="Amount (GBP)"),
+                color=alt.Color(
+                    "category:N",
+                    title="Category",
+                    scale=pie_chart_scale,
+                    sort=pie_chart_df["category"].tolist(),
+                ),
+                order=alt.Order("percentage:Q", sort="descending"),
+                tooltip=[
+                    alt.Tooltip("category:N", title="Category"),
+                    alt.Tooltip("amount_gbp:Q", title="Amount (GBP)", format=".2f"),
+                    alt.Tooltip("percentage_label:N", title="Percentage"),
+                ],
+            ),
+            use_container_width=True,
+        )
+    else:
+        st.altair_chart(
+            alt.Chart(category_chart_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("amount_gbp:Q", title="Amount (GBP)"),
+                y=alt.Y("category:N", sort="-x", title="Category"),
+                color=alt.Color(
+                    "category:N",
+                    title="Category",
+                    scale=category_scale,
+                    sort=category_chart_df["category"].tolist(),
+                    legend=None,
+                ),
+                tooltip=[
+                    alt.Tooltip("category:N", title="Category"),
+                    alt.Tooltip("amount_gbp:Q", title="Amount (GBP)", format=".2f"),
+                ],
+            ),
+            use_container_width=True,
+        )
+    render_category_summary_table(category_chart_df)
+
+    st.markdown("**Monthly trend**")
+    trend_chart_df = pd.DataFrame(
+        [
+            {"month": row["month"], "amount_gbp": float(row["amount_gbp"])}
+            for row in trend_rows
+        ]
+    )
+    st.altair_chart(
+        alt.Chart(trend_chart_df)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("month:N", title="Month"),
+            y=alt.Y("amount_gbp:Q", title="Amount (GBP)"),
+            tooltip=[
+                alt.Tooltip("month:N", title="Month"),
+                alt.Tooltip("amount_gbp:Q", title="Amount (GBP)", format=".2f"),
+            ],
+        ),
+        use_container_width=True,
+    )
+
+    st.markdown("**Largest expenses**")
+    st.dataframe(
+        [
+            {
+                "Date": transaction.transaction_date.isoformat(),
+                "Description": transaction.description,
+                "Category": transaction.category,
+                "Amount (GBP)": f"{Decimal(transaction.amount_gbp):.2f}",
+            }
+            for transaction in largest_rows
+        ],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
 def main() -> None:
     """Run the Streamlit expense tracker app."""
 
@@ -481,6 +862,10 @@ def main() -> None:
     render_transaction_grid()
     st.divider()
     render_export_section()
+    st.divider()
+    render_import_section()
+    st.divider()
+    render_reports_section()
 
 
 if __name__ == "__main__":

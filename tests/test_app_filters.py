@@ -6,6 +6,9 @@ from decimal import Decimal
 import pytest
 
 from src.app import (
+    build_category_chart_df,
+    build_pie_chart_df,
+    build_editor_totals_row,
     build_editor_rows,
     build_update_payload_from_row,
     collect_selected_transaction_ids,
@@ -84,6 +87,61 @@ def test_build_editor_rows_keeps_editable_native_values() -> None:
     assert rows[0]["Cash"] is True
     assert rows[0]["Amount (GBP)"] == 12.5
     assert rows[0]["Amount (HKD)"] == "125.00"
+
+
+def test_build_editor_totals_row_sums_both_amount_columns() -> None:
+    total_gbp, total_hkd = build_editor_totals_row(
+        [
+            make_transaction(transaction_id=1, transaction_date=date(2026, 6, 1), category="Food"),
+            StoredExpenseTransaction(
+                id=2,
+                transaction_date=date(2026, 6, 2),
+                description="Travel",
+                category="Travel",
+                amount_gbp=Decimal("25.50"),
+                expense_hkd=Decimal("255.00"),
+                tax_deductable=False,
+                cash=False,
+                notes=None,
+                created_at=datetime(2026, 6, 3, 10, 0, 0),
+                updated_at=datetime(2026, 6, 3, 10, 0, 0),
+            ),
+        ]
+    )
+
+    assert total_gbp == Decimal("35.50")
+    assert total_hkd == Decimal("255.00")
+
+
+def test_build_category_chart_df_adds_percentages_in_descending_order() -> None:
+    chart_df = build_category_chart_df(
+        [
+            {"category": "Drink", "amount_gbp": Decimal("20.00")},
+            {"category": "Food", "amount_gbp": Decimal("50.00")},
+            {"category": "Gift", "amount_gbp": Decimal("30.00")},
+        ]
+    )
+
+    assert chart_df["category"].tolist() == ["Food", "Gift", "Drink"]
+    assert chart_df["percentage_label"].tolist() == ["50.0%", "30.0%", "20.0%"]
+
+
+def test_build_pie_chart_df_keeps_all_rows() -> None:
+    chart_df = build_category_chart_df(
+        [
+            {"category": "A", "amount_gbp": Decimal("60.00")},
+            {"category": "B", "amount_gbp": Decimal("50.00")},
+            {"category": "C", "amount_gbp": Decimal("40.00")},
+            {"category": "D", "amount_gbp": Decimal("30.00")},
+            {"category": "E", "amount_gbp": Decimal("20.00")},
+            {"category": "F", "amount_gbp": Decimal("10.00")},
+        ]
+    )
+
+    pie_chart_df = build_pie_chart_df(chart_df)
+
+    assert pie_chart_df["category"].tolist() == ["A", "B", "C", "D", "E", "F"]
+    assert pie_chart_df["percentage_label"].tolist()[:3] == ["28.6%", "23.8%", "19.0%"]
 
 
 def test_detect_changed_rows_identifies_only_modified_rows() -> None:
