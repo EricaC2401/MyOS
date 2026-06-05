@@ -33,11 +33,11 @@ def test_validate_expense_transaction_accepts_valid_data() -> None:
     assert transaction.notes == "Bought for the week"
 
 
-def test_validate_expense_transaction_defaults_missing_category() -> None:
+def test_validate_expense_transaction_defaults_missing_category_when_no_rule_matches() -> None:
     transaction = validate_expense_transaction(
         {
             "transaction_date": "2026-05-02",
-            "description": "Coffee",
+            "description": "Coffee from local cafe",
             "category": "   ",
             "amount_gbp": "3.50",
             "tax_deductable": False,
@@ -48,6 +48,66 @@ def test_validate_expense_transaction_defaults_missing_category() -> None:
     assert transaction.category == DEFAULT_CATEGORY
     assert transaction.expense_hkd is None
     assert transaction.notes is None
+
+
+def test_validate_expense_transaction_suggests_category_from_keywords() -> None:
+    transaction = validate_expense_transaction(
+        {
+            "transaction_date": "2026-05-02",
+            "description": "Tesco weekly shop",
+            "category": "   ",
+            "amount_gbp": "22.40",
+            "tax_deductable": False,
+            "cash": False,
+        }
+    )
+
+    assert transaction.category == "Groceries"
+
+
+def test_validate_expense_transaction_uses_supermarket_food_keywords() -> None:
+    transaction = validate_expense_transaction(
+        {
+            "transaction_date": "2026-05-02",
+            "description": "Tesco veg and pork",
+            "category": "   ",
+            "amount_gbp": "22.40",
+            "tax_deductable": False,
+            "cash": False,
+        }
+    )
+
+    assert transaction.category == "Food"
+
+
+def test_validate_expense_transaction_uses_supermarket_c_groceries_keywords() -> None:
+    transaction = validate_expense_transaction(
+        {
+            "transaction_date": "2026-05-02",
+            "description": "Lidl towel and tissue",
+            "category": "   ",
+            "amount_gbp": "8.40",
+            "tax_deductable": False,
+            "cash": False,
+        }
+    )
+
+    assert transaction.category == "C Groceries"
+
+
+def test_validate_expense_transaction_keeps_manual_category_override() -> None:
+    transaction = validate_expense_transaction(
+        {
+            "transaction_date": "2026-05-02",
+            "description": "Tesco weekly shop",
+            "category": "Food",
+            "amount_gbp": "22.40",
+            "tax_deductable": False,
+            "cash": False,
+        }
+    )
+
+    assert transaction.category == "Food"
 
 
 def test_validate_expense_transaction_accepts_month_name_date_format() -> None:

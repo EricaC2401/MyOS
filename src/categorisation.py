@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 DEFAULT_CATEGORY = "Uncategorised"
 
 DEFAULT_CATEGORIES = (
@@ -22,6 +24,44 @@ DEFAULT_CATEGORIES = (
     "LH",
     "Other",
     DEFAULT_CATEGORY,
+)
+
+KEYWORD_CATEGORY_RULES = (
+    ("Transport", ("trainline", "uber", "bolt", "tfl", "tube", "bus", "train")),
+    ("Subscriptions", ("netflix", "spotify", "voxi", "chatgpt", "icloud")),
+    ("Shopping", ("amazon",)),
+    ("Bills", ("council tax", "utility bill", "electric bill", "water bill", "gas bill")),
+    ("Housing", ("rent",)),
+)
+
+SUPERMARKET_KEYWORDS = (
+    "tesco",
+    "aldi",
+    "lidl",
+    "sainsbury",
+    "waitrose",
+    "m&s",
+    "marks and spencer",
+    "marks & spencer",
+    "boots"
+)
+
+SUPERMARKET_FOOD_KEYWORDS = (
+    "veg",
+    "vegetable",
+    "vegetables",
+    "meat",
+    "pork",
+    "beef",
+    "chicken",
+    "fruit",
+)
+
+SUPERMARKET_C_GROCERIES_KEYWORDS = (
+    "towel",
+    "tissue",
+    "oil",
+    "toilet roll",
 )
 
 CHART_CATEGORY_PALETTE = (
@@ -74,6 +114,17 @@ def get_default_categories() -> list[str]:
     return list(DEFAULT_CATEGORIES)
 
 
+def get_keyword_category_rules() -> list[tuple[str, tuple[str, ...]]]:
+    """Return the code-defined keyword rules used for suggested categories."""
+
+    return [
+        ("Groceries", SUPERMARKET_KEYWORDS),
+        ("Food", SUPERMARKET_FOOD_KEYWORDS),
+        ("C Groceries", SUPERMARKET_C_GROCERIES_KEYWORDS),
+        *KEYWORD_CATEGORY_RULES,
+    ]
+
+
 def normalize_category(category: str | None) -> str:
     """Return a clean category value, defaulting blanks to Uncategorised."""
 
@@ -85,6 +136,79 @@ def normalize_category(category: str | None) -> str:
         return DEFAULT_CATEGORY
 
     return normalized
+
+
+def _normalize_description_for_matching(description: str) -> str:
+    """Return one lowercase description string for substring matching."""
+
+    return " ".join(str(description).strip().lower().split())
+
+
+def _extract_word_tokens(description: str) -> set[str]:
+    """Return lowercase word tokens for exact keyword matching."""
+
+    return set(re.findall(r"[a-z0-9]+", description.lower()))
+
+
+def _matches_keyword(
+    keyword: str,
+    normalized_description: str,
+    word_tokens: set[str],
+) -> bool:
+    """Return whether one keyword matches the normalized description."""
+
+    if " " in keyword:
+        return keyword in normalized_description
+
+    return keyword in word_tokens
+
+
+def suggest_category(description: str | None) -> str | None:
+    """Return a suggested category from the description, if any rule matches."""
+
+    if description is None:
+        return None
+
+    normalized_description = _normalize_description_for_matching(description)
+    if not normalized_description:
+        return None
+
+    word_tokens = _extract_word_tokens(normalized_description)
+
+    if any(
+        _matches_keyword(keyword, normalized_description, word_tokens)
+        for keyword in SUPERMARKET_C_GROCERIES_KEYWORDS
+    ):
+        return "C Groceries"
+
+    if any(
+        _matches_keyword(keyword, normalized_description, word_tokens)
+        for keyword in SUPERMARKET_FOOD_KEYWORDS
+    ):
+        return "Food"
+
+    for category, keywords in KEYWORD_CATEGORY_RULES:
+        if any(keyword in normalized_description for keyword in keywords):
+            return category
+
+    if any(keyword in normalized_description for keyword in SUPERMARKET_KEYWORDS):
+        return "Groceries"
+
+    return None
+
+
+def resolve_category(category: str | None, description: str | None) -> str:
+    """Return the chosen category, preferring manual input over keyword suggestions."""
+
+    normalized = None if category is None else " ".join(str(category).strip().split())
+    if normalized:
+        return normalized
+
+    suggested_category = suggest_category(description)
+    if suggested_category is not None:
+        return suggested_category
+
+    return DEFAULT_CATEGORY
 
 
 def get_category_color(category: str) -> str:

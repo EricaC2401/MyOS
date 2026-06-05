@@ -8,9 +8,9 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 try:
-    from src.categorisation import normalize_category
+    from src.categorisation import resolve_category
 except ModuleNotFoundError:  # pragma: no cover - used when src modules are run directly
-    from categorisation import normalize_category
+    from categorisation import resolve_category
 
 
 class ValidationError(ValueError):
@@ -125,7 +125,7 @@ def validate_expense_transaction(data: dict[str, Any]) -> ExpenseTransaction:
     description = _normalize_text(
         _require_field(data, "description"), "description", required=True
     )
-    category = normalize_category(data.get("category"))
+    category = resolve_category(data.get("category"), description)
     amount_gbp = _parse_decimal(data.get("amount_gbp"), "amount_gbp", required=True)
     expense_hkd = _parse_decimal(data.get("expense_hkd"), "expense_hkd", required=False)
     tax_deductable = _parse_boolean(

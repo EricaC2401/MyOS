@@ -11,7 +11,12 @@ import pandas as pd
 import streamlit as st
 
 try:
-    from src.categorisation import get_category_color, get_default_categories
+    from src.categorisation import (
+        DEFAULT_CATEGORY,
+        get_category_color,
+        get_default_categories,
+        suggest_category,
+    )
     from src.db import (
         DatabaseConnectionError,
         StoredExpenseTransaction,
@@ -32,7 +37,12 @@ try:
         filter_transactions_by_date_range,
     )
 except ModuleNotFoundError:  # pragma: no cover - used when Streamlit runs src/app.py directly
-    from categorisation import get_category_color, get_default_categories
+    from categorisation import (
+        DEFAULT_CATEGORY,
+        get_category_color,
+        get_default_categories,
+        suggest_category,
+    )
     from db import (
         DatabaseConnectionError,
         StoredExpenseTransaction,
@@ -95,6 +105,53 @@ def build_expense_payload(
     }
 
 
+def get_manual_category_value(
+    *,
+    description: str,
+    current_category: str | None,
+    category_overridden: bool,
+) -> tuple[str, str | None]:
+    """Return the visible manual-form category and the current suggestion."""
+
+    suggested_category = suggest_category(description)
+    normalized_current = current_category or DEFAULT_CATEGORY
+
+    if category_overridden:
+        return normalized_current, suggested_category
+
+    return suggested_category or normalized_current, suggested_category
+
+
+def _mark_manual_category_override() -> None:
+    """Remember that the user explicitly changed the manual category."""
+
+    st.session_state["manual_category_overridden"] = True
+
+
+def _reset_manual_entry_state() -> None:
+    """Queue a clean manual-entry reset for the next rerun."""
+
+    st.session_state["manual_entry_reset_pending"] = True
+
+
+def _apply_pending_manual_entry_reset() -> None:
+    """Reset the manual-entry widget state before widgets are created."""
+
+    if not st.session_state.get("manual_entry_reset_pending"):
+        return
+
+    st.session_state["manual_transaction_date"] = date.today()
+    st.session_state["manual_description"] = ""
+    st.session_state["manual_category"] = DEFAULT_CATEGORY
+    st.session_state["manual_category_overridden"] = False
+    st.session_state["manual_amount_gbp"] = 0.0
+    st.session_state["manual_expense_hkd"] = ""
+    st.session_state["manual_tax_deductable"] = False
+    st.session_state["manual_cash"] = False
+    st.session_state["manual_notes"] = ""
+    st.session_state["manual_entry_reset_pending"] = False
+
+
 def show_temporary_success(message: str, *, seconds: int = 5) -> None:
     """Show a success message briefly, then clear it."""
 
@@ -131,17 +188,51 @@ def render_manual_entry_form() -> None:
     st.caption("Record one expense at a time. Required fields are kept short for iPhone use.")
 
     categories = get_default_categories()
+    _apply_pending_manual_entry_reset()
+    if "manual_category_overridden" not in st.session_state:
+        st.session_state["manual_category_overridden"] = False
+    if "manual_category" not in st.session_state:
+        st.session_state["manual_category"] = DEFAULT_CATEGORY
 
-    with st.form("manual_expense_form", clear_on_submit=True):
-        transaction_date = st.date_input("Date", value=date.today())
-        description = st.text_input("Description")
-        category = st.selectbox("Category", categories, index=0)
-        amount_gbp = st.number_input("Amount (GBP)", min_value=0.0, step=0.01, format="%.2f")
-        expense_hkd = st.text_input("Amount (HKD) optional")
-        tax_deductable = st.checkbox("Tax deductable")
-        cash = st.checkbox("Cash payment")
-        notes = st.text_area("Notes", height=100)
-        submitted = st.form_submit_button("Save Expense", use_container_width=True)
+    transaction_date = st.date_input("Date", value=date.today(), key="manual_transaction_date")
+    description = st.text_input("Description", key="manual_description")
+
+    visible_category, suggested_category = get_manual_category_value(
+        description=description,
+        current_category=st.session_state.get("manual_category"),
+        category_overridden=bool(st.session_state.get("manual_category_overridden")),
+    )
+    st.session_state["manual_category"] = visible_category
+
+    if suggested_category:
+        if visible_category == suggested_category:
+            st.caption(f"Suggested category: {suggested_category}. You can still change it below.")
+        else:
+            st.caption(
+                f"Suggested category: {suggested_category}. Manual selection is currently overriding it."
+            )
+    else:
+        st.caption("No keyword-based category suggestion yet. You can choose a category manually.")
+
+    category = st.selectbox(
+        "Category",
+        categories,
+        index=categories.index(st.session_state["manual_category"]),
+        key="manual_category",
+        on_change=_mark_manual_category_override,
+    )
+    amount_gbp = st.number_input(
+        "Amount (GBP)",
+        min_value=0.0,
+        step=0.01,
+        format="%.2f",
+        key="manual_amount_gbp",
+    )
+    expense_hkd = st.text_input("Amount (HKD) optional", key="manual_expense_hkd")
+    tax_deductable = st.checkbox("Tax deductable", key="manual_tax_deductable")
+    cash = st.checkbox("Cash payment", key="manual_cash")
+    notes = st.text_area("Notes", height=100, key="manual_notes")
+    submitted = st.button("Save Expense", use_container_width=True)
 
     if not submitted:
         return
@@ -167,9 +258,11 @@ def render_manual_entry_form() -> None:
         st.error(str(exc))
         return
 
+    _reset_manual_entry_state()
     show_temporary_success(
         f"Saved expense #{stored.id}: {stored.description} for GBP {stored.amount_gbp:.2f}."
     )
+    st.rerun()
 
 
 def filter_transactions(

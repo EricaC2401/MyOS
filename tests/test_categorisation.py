@@ -4,7 +4,10 @@ from src.categorisation import (
     DEFAULT_CATEGORY,
     get_category_color,
     get_default_categories,
+    get_keyword_category_rules,
     normalize_category,
+    resolve_category,
+    suggest_category,
 )
 
 
@@ -32,3 +35,32 @@ def test_get_category_color_uses_named_and_stable_fallback_colors() -> None:
     assert get_category_color("Food") == "#5E9B73"
     assert get_category_color("Subscription") == "#B07AA1"
     assert get_category_color("  Custom Category  ") == get_category_color("Custom Category")
+
+
+def test_get_keyword_category_rules_includes_expected_examples() -> None:
+    rules = dict(get_keyword_category_rules())
+
+    assert "tesco" in rules["Groceries"]
+    assert "veg" in rules["Food"]
+    assert "towel" in rules["C Groceries"]
+    assert "uber" in rules["Transport"]
+
+
+def test_suggest_category_matches_keywords_case_insensitively() -> None:
+    assert suggest_category("TESCO weekly shop") == "Groceries"
+    assert suggest_category("veg, pork") == "Food"
+    assert suggest_category("Tesco veg and pork") == "Food"
+    assert suggest_category("Waitrose kitchen towel and tissue") == "C Groceries"
+    assert suggest_category("Toilet Roll") == "C Groceries"
+    assert suggest_category("Tesco Uber ride") == "Transport"
+    assert suggest_category("M&S fruit and meat") == "Food"
+    assert suggest_category("Uber airport ride") == "Transport"
+    assert suggest_category("Spotify family plan") == "Subscriptions"
+
+
+def test_resolve_category_prefers_manual_override_then_keyword_then_default() -> None:
+    assert resolve_category("Food", "Tesco weekly shop") == "Food"
+    assert resolve_category("   ", "veg, pork") == "Food"
+    assert resolve_category("   ", "Tesco weekly shop") == "Groceries"
+    assert resolve_category("   ", "Lidl oil and tissue") == "C Groceries"
+    assert resolve_category(None, "Unknown merchant") == DEFAULT_CATEGORY
