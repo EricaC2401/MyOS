@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Expense Tracker</title>
-<link rel="stylesheet" href="/css/app.css?v=20260626-10">
+<link rel="stylesheet" href="/css/app.css?v=20260626-31">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -306,14 +306,85 @@
     <!-- ══ FINANCE ══ -->
     <div class="section" id="sec-finance">
       <div class="metrics metrics-3" id="finance-metrics">
-        <div class="mc"><div class="mc-label">Total (GBP equiv.)</div><div class="mc-value pos" id="mc-fin-gbp">—</div><div class="mc-sub">Excl. Mum's Time D</div></div>
-        <div class="mc"><div class="mc-label">Total (HKD equiv.)</div><div class="mc-value" id="mc-fin-hkd">—</div><div class="mc-sub">Excl. Mum's Time D</div></div>
-        <div class="mc"><div class="mc-label">Accounts tracked</div><div class="mc-value" id="mc-fin-count">—</div><div class="mc-sub" id="mc-fin-count-sub"></div></div>
+        <div class="mc"><div class="mc-label">Excl. Mum's Time D</div><div class="mc-value pos" id="mc-fin-gbp">—</div><div class="mc-sub" id="mc-fin-gbp-sub">GBP — | HKD —</div></div>
+        <div class="mc"><div class="mc-label">Incl. Mum's Time D</div><div class="mc-value" id="mc-fin-hkd">—</div><div class="mc-sub" id="mc-fin-hkd-sub">GBP — | HKD —</div></div>
+        <div class="mc"><div class="mc-label">GBP/HKD rate</div><div class="mc-value" id="mc-fin-rate">—</div><div class="mc-sub">Used for converted totals</div></div>
+      </div>
+      <div class="card" style="padding:0 0 4px">
+        <div class="expense-table-summary">
+          <span>Finance totals</span>
+          <span>Latest balances and Mum's Time D scenarios</span>
+        </div>
+        <div class="finance-summary-layout" id="finance-summary-layout">
+          <div class="finance-summary-box">
+            <table class="data-tbl">
+              <thead><tr><th>Currency</th><th>Balance</th></tr></thead>
+              <tbody id="finance-summary-left"><tr><td colspan="2" style="text-align:center;color:#8492a6;padding:20px">Loading totals…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="finance-summary-box">
+            <table class="data-tbl">
+              <thead><tr><th>Currency</th><th>Balance</th></tr></thead>
+              <tbody id="finance-summary-right"><tr><td colspan="2" style="text-align:center;color:#8492a6;padding:20px">Loading totals…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="finance-summary-box finance-summary-bottom">
+            <table class="data-tbl">
+              <thead><tr><th>Currency</th><th>Balance</th></tr></thead>
+              <tbody id="finance-summary-bottom"><tr><td colspan="2" style="text-align:center;color:#8492a6;padding:20px">Loading totals…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="finance-summary-box">
+            <table class="data-tbl">
+              <thead><tr><th>Currency</th><th>Balance</th></tr></thead>
+              <tbody id="finance-summary-lower-left"><tr><td colspan="2" style="text-align:center;color:#8492a6;padding:20px">Loading totals…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="finance-summary-box">
+            <table class="data-tbl">
+              <thead><tr><th>Currency</th><th>Balance</th></tr></thead>
+              <tbody id="finance-summary-lower-right"><tr><td colspan="2" style="text-align:center;color:#8492a6;padding:20px">Loading totals…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="padding:0 0 4px">
+        <div class="expense-table-summary">
+          <span>Account details</span>
+          <span>Latest balances by account</span>
+        </div>
+        <div class="tbl-wrap expense-tbl-wrap">
+          <table class="data-tbl">
+            <thead><tr>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('snapshot_date')">Balance date</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('updated_at')">Last updated</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('institution')">Institution</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('account')">Account</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('currency')">Currency</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('balance')">Balance</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('account_type')">Account type</th>
+              <th class="sortable-col" onclick="setFinanceDetailsSort('notes')">Notes</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="finance-details-tbody"><tr><td colspan="9" style="text-align:center;color:#8492a6;padding:20px">Loading finance snapshot…</td></tr></tbody>
+          </table>
+        </div>
       </div>
       <div class="row2">
-        <div class="card" id="finance-balances">
-          <div class="card-title"><i class="ti ti-building-bank"></i>Current balances<span class="ct-right"><span class="dot-green"></span>Latest</span></div>
-          <div style="font-size:12px;color:#8492a6">Loading…</div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-arrows-exchange"></i>Update FX rate</div>
+          <div class="form-grid">
+            <div class="form-group"><label>GBP to HKD rate</label><input type="number" step="0.0001" id="fx-rate-gbp"></div>
+            <div class="form-group"><label>EUR to HKD rate</label><input type="number" step="0.0001" id="fx-rate-eur"></div>
+            <div class="form-group"><label>USD to HKD rate</label><input type="number" step="0.0001" id="fx-rate-usd"></div>
+            <div class="form-group"><label>JPY to HKD rate</label><input type="number" step="0.0001" id="fx-rate-jpy"></div>
+            <div class="form-group"><label>CAD to HKD rate</label><input type="number" step="0.0001" id="fx-rate-cad"></div>
+          </div>
+          <div class="form-status" id="finance-fx-status"></div>
+          <div class="form-actions" style="margin-top:10px">
+            <button class="btn-primary" onclick="saveFinanceFxRates()"><i class="ti ti-refresh"></i>Fetch from Frankfurter</button>
+            <button class="btn-secondary" onclick="saveManualFinanceFxRates()"><i class="ti ti-device-floppy"></i>Save manual rates</button>
+          </div>
         </div>
         <div class="card">
           <div class="card-title"><i class="ti ti-plus"></i>Update snapshot</div>
@@ -321,11 +392,45 @@
             <div class="form-group"><label>Snapshot date</label><input type="date" id="fin-date"></div>
             <div class="form-group"><label>Institution</label><input type="text" placeholder="e.g. Monzo" id="fin-inst"></div>
             <div class="form-group"><label>Account</label><input type="text" placeholder="e.g. Current" id="fin-acct"></div>
-            <div class="form-group"><label>Currency</label><select id="fin-currency"><option>GBP</option><option>HKD</option><option>USD</option><option>EUR</option></select></div>
+            <div class="form-group"><label>Currency</label><select id="fin-currency"><option>GBP</option><option>HKD</option><option>USD</option><option>EUR</option><option>CAD</option><option>JPY</option></select></div>
             <div class="form-group"><label>Balance</label><input type="number" placeholder="0.00" step="0.01" id="fin-balance"></div>
             <div class="form-group"><label>Account type — optional</label><input type="text" placeholder="e.g. Savings" id="fin-type"></div>
+            <div class="form-group" style="grid-column:1 / -1"><label>Notes — optional</label><input type="text" placeholder="Optional note" id="fin-notes"></div>
           </div>
-          <div class="form-actions" style="margin-top:10px"><button class="btn-primary" onclick="saveFinanceSnapshot()"><i class="ti ti-check"></i>Save entry</button><button class="btn-secondary" onclick="clearFinanceForm()">Clear</button></div>
+          <div class="form-status" id="finance-form-status"></div>
+          <div class="form-actions" style="margin-top:10px"><button class="btn-primary" id="finance-save-btn" onclick="saveFinanceSnapshot()"><i class="ti ti-check"></i>Save entry</button><button class="btn-secondary" onclick="clearFinanceForm()">Clear</button></div>
+        </div>
+      </div>
+      <div class="card" style="padding:13px 17px">
+        <div class="filter-bar">
+          <input type="date" id="finance-history-start" aria-label="Finance history start date">
+          <input type="date" id="finance-history-end" aria-label="Finance history end date">
+          <select id="finance-history-account-filter"><option>All bank accounts</option></select>
+          <button class="btn-secondary" onclick="loadFinanceHistory()"><i class="ti ti-filter"></i>Filter</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0 0 4px">
+        <div class="expense-table-summary">
+          <span>Full balance history</span>
+          <span>Month to date by default</span>
+        </div>
+        <div class="tbl-wrap expense-tbl-wrap">
+          <table class="data-tbl">
+            <thead><tr>
+              <th class="sortable-col" onclick="setFinanceHistorySort('snapshot_date')">Snapshot date</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('updated_at')">Last updated</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('institution')">Institution</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('account')">Account</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('currency')">Currency</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('balance')">Balance</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('previous_balance')">Previous balance</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('related_record_item')">Related item</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('signed_related_amount')">Related amount</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('account_type')">Account type</th>
+              <th class="sortable-col" onclick="setFinanceHistorySort('notes')">Notes</th>
+            </tr></thead>
+            <tbody id="finance-history-tbody"><tr><td colspan="11" style="text-align:center;color:#8492a6;padding:20px">Loading balance history…</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -526,9 +631,9 @@
 </div><!-- /main -->
 </div><!-- /app -->
 
-<script src="/js/api.js?v=20260626-10"></script>
-<script src="/js/utils.js?v=20260626-10"></script>
-<script src="/js/dashboard.js?v=20260626-10"></script>
-<script src="/js/app.js?v=20260626-10"></script>
+<script src="/js/api.js?v=20260626-31"></script>
+<script src="/js/utils.js?v=20260626-31"></script>
+<script src="/js/dashboard.js?v=20260626-31"></script>
+<script src="/js/app.js?v=20260626-31"></script>
 </body>
 </html>

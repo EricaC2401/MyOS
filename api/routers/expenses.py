@@ -21,6 +21,7 @@ from src.db import (
     FinanceLinkError,
 )
 from src.models import validate_expense_transaction, ValidationError
+from src.finance_dashboard_cache import invalidate_finance_dashboard_cache
 from api.serializers import serialize_expense
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -150,6 +151,7 @@ def create_expense(body: ExpenseCreate):
             institution=link[0], account=link[1], currency=link[2],
             deduction_amount=amount,
         )
+    invalidate_finance_dashboard_cache()
     return serialize_expense(stored)
 
 
@@ -185,6 +187,7 @@ def update_expense_endpoint(expense_id: int, body: ExpenseUpdate):
     if updated is None:
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Expense #{expense_id} could not be updated"})
+    invalidate_finance_dashboard_cache()
     return serialize_expense(updated)
 
 
@@ -211,4 +214,5 @@ def delete_expense_endpoint(expense_id: int):
     if not deleted:
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Expense #{expense_id} could not be deleted"})
+    invalidate_finance_dashboard_cache()
     return {"deleted": True, "id": expense_id}

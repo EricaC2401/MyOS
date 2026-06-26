@@ -9,6 +9,9 @@ async function loadDashboard(periodMode, startDate, endDate) {
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
 
+  renderFinanceSnapshotLoading();
+  const financePromise = loadDashboardFinanceSnapshot();
+
   let data;
   try {
     data = await apiGet('/reports/dashboard?' + params);
@@ -22,8 +25,8 @@ async function loadDashboard(periodMode, startDate, endDate) {
   renderDashboardMetrics(data.metrics);
   renderDashboardChart(data.trend_data, data.stacked_trend, data.trend_type);
   renderTopCategories(data.category_spending);
-  renderFinanceSnapshot(data.finance_currency_summary, data.finance_totals);
   renderExpenseBreakout(data);
+  await financePromise;
 }
 
 function pctOfIncome(num, income) {
@@ -194,7 +197,13 @@ function renderTopCategories(categories) {
   el.innerHTML = html;
 }
 
-function renderFinanceSnapshot(summary, totals) {
+function renderFinanceSnapshotLoading() {
+  const el = document.getElementById('dashboard-finance');
+  if (!el) return;
+  el.innerHTML = '<div class="card-title"><i class="ti ti-building-bank"></i>Finance snapshot</div><div style="font-size:12px;color:#8492a6">Loading...</div>';
+}
+
+function renderDashboardFinanceSnapshot(summary, totals) {
   const el = document.getElementById('dashboard-finance');
   let html = '<div class="card-title"><i class="ti ti-building-bank"></i>Finance snapshot</div>';
 
@@ -218,6 +227,28 @@ function renderFinanceSnapshot(summary, totals) {
     }
   }
   el.innerHTML = html;
+}
+
+async function loadDashboardFinanceSnapshot() {
+  try {
+    const overview = await apiGet('/finance/overview');
+    const excluding = (overview.scenario_totals || []).find((row) => row.scenario === "Excluding Mum's Time D");
+    const including = (overview.scenario_totals || []).find((row) => row.scenario === "Including Mum's Time D");
+    renderDashboardFinanceSnapshot(
+      overview.currency_totals || [],
+      {
+        total_gbp_excluding_mums_time_d: excluding?.total_gbp,
+        total_hkd_excluding_mums_time_d: excluding?.total_hkd,
+        total_gbp_including_mums_time_d: including?.total_gbp,
+        total_hkd_including_mums_time_d: including?.total_hkd,
+        rate_gbp_hkd: overview.rate_gbp_hkd,
+      },
+    );
+  } catch (e) {
+    const el = document.getElementById('dashboard-finance');
+    if (!el) return;
+    el.innerHTML = `<div class="card-title"><i class="ti ti-building-bank"></i>Finance snapshot</div><div style="font-size:12px;color:#c0392b">Finance snapshot error: ${e.message}</div>`;
+  }
 }
 
 function renderExpenseBreakout(data) {

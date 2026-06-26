@@ -50,12 +50,121 @@ let taxCustomPeriod = {
 };
 let currentTaxRows = [];
 let editingTaxId = null;
+let financeSnapshotRows = [];
+let editingFinanceSnapshotId = null;
+let financeHistoryRows = [];
+let currentFinanceOverview = null;
+let financeDetailsSort = { key: 'updated_at', direction: 'desc' };
+let financeHistorySort = { key: 'updated_at', direction: 'desc' };
+const FINANCE_TABLE_PREVIEW_LIMIT = 6;
 let categoryCatalog = [];
 let categoryGroups = [];
 let categoryManagerAvailable = true;
 
 function normalizeText(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function getFinanceSortValue(entry, key) {
+  const value = entry?.[key];
+  if (value === null || value === undefined) return null;
+  if (key === 'snapshot_date' || key === 'updated_at') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (key === 'balance' || key === 'related_record_amount' || key === 'previous_balance' || key === 'signed_related_amount') {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return String(value).toLowerCase();
+}
+
+function deriveFinanceHistoryRows(entries) {
+  const accountGroups = new Map();
+  entries.forEach((entry) => {
+    const key = `${entry.institution}|||${entry.account}|||${entry.currency}`;
+    if (!accountGroups.has(key)) accountGroups.set(key, []);
+    accountGroups.get(key).push(entry);
+  });
+
+  const derivedById = new Map();
+  accountGroups.forEach((rows) => {
+    const ordered = [...rows].sort((left, right) => {
+      const leftTime = Date.parse(left.updated_at || left.snapshot_date || '') || 0;
+      const rightTime = Date.parse(right.updated_at || right.snapshot_date || '') || 0;
+      if (leftTime !== rightTime) return leftTime - rightTime;
+      return Number(left.id || 0) - Number(right.id || 0);
+    });
+
+    let previousBalance = null;
+    ordered.forEach((entry) => {
+      const currentBalance = Number(entry.balance);
+      const signedRelatedAmount = previousBalance === null || !Number.isFinite(currentBalance)
+        ? null
+        : currentBalance - previousBalance;
+      derivedById.set(entry.id, {
+        ...entry,
+        previous_balance: previousBalance,
+        signed_related_amount: signedRelatedAmount,
+      });
+      previousBalance = Number.isFinite(currentBalance) ? currentBalance : previousBalance;
+    });
+  });
+
+  return entries.map((entry) => derivedById.get(entry.id) || {
+    ...entry,
+    previous_balance: null,
+    signed_related_amount: null,
+  });
+}
+
+function sortFinanceRows(rows, sortState) {
+  const multiplier = sortState.direction === 'asc' ? 1 : -1;
+  return [...rows].sort((left, right) => {
+    const leftValue = getFinanceSortValue(left, sortState.key);
+    const rightValue = getFinanceSortValue(right, sortState.key);
+
+    if (leftValue === null && rightValue === null) return 0;
+    if (leftValue === null) return 1;
+    if (rightValue === null) return -1;
+    if (leftValue < rightValue) return -1 * multiplier;
+    if (leftValue > rightValue) return 1 * multiplier;
+
+    const leftId = Number(left?.id || 0);
+    const rightId = Number(right?.id || 0);
+    return (rightId - leftId) * multiplier;
+  });
+}
+
+function updateSortableHeaderLabels(tableBodyId, sortState) {
+  const tbody = document.getElementById(tableBodyId);
+  const table = tbody?.closest('table');
+  if (!table) return;
+
+  table.querySelectorAll('th.sortable-col').forEach((th) => {
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/^[↓↑]\s*/, '').trim();
+    th.dataset.baseLabel = baseLabel;
+
+    const onclickValue = th.getAttribute('onclick') || '';
+    const match = onclickValue.match(/'([^']+)'/);
+    const key = match ? match[1] : '';
+    const arrow = key === sortState.key ? (sortState.direction === 'desc' ? '↓ ' : '↑ ') : '';
+    th.textContent = `${arrow}${baseLabel}`;
+  });
+}
+
+function setFinanceDetailsSort(key) {
+  financeDetailsSort = financeDetailsSort.key === key
+    ? { key, direction: financeDetailsSort.direction === 'desc' ? 'asc' : 'desc' }
+    : { key, direction: 'desc' };
+  renderFinanceSnapshot(financeSnapshotRows, currentFinanceOverview);
+}
+
+function setFinanceHistorySort(key) {
+  financeHistorySort = financeHistorySort.key === key
+    ? { key, direction: financeHistorySort.direction === 'desc' ? 'asc' : 'desc' }
+    : { key, direction: 'desc' };
+  renderFinanceHistory(financeHistoryRows);
 }
 
 function todayDate() {
@@ -1190,6 +1299,384 @@ function buildTaxPayloadFromForm() {
   };
 }
 
+function renderFinanceSnapshotStatus(message, color = '#8492a6') {
+  const detailsTbody = document.getElementById('finance-details-tbody');
+  const leftTbody = document.getElementById('finance-summary-left');
+  const rightTbody = document.getElementById('finance-summary-right');
+  const bottomTbody = document.getElementById('finance-summary-bottom');
+  const lowerLeftTbody = document.getElementById('finance-summary-lower-left');
+  const lowerRightTbody = document.getElementById('finance-summary-lower-right');
+  if (detailsTbody) {
+    detailsTbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+  }
+  if (leftTbody) leftTbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+  if (rightTbody) rightTbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+  if (bottomTbody) bottomTbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+  if (lowerLeftTbody) lowerLeftTbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+  if (lowerRightTbody) lowerRightTbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+}
+
+function renderFinanceSnapshot(entries, overview = null) {
+  const detailsTbody = document.getElementById('finance-details-tbody');
+  const leftTbody = document.getElementById('finance-summary-left');
+  const rightTbody = document.getElementById('finance-summary-right');
+  const bottomTbody = document.getElementById('finance-summary-bottom');
+  const lowerLeftTbody = document.getElementById('finance-summary-lower-left');
+  const lowerRightTbody = document.getElementById('finance-summary-lower-right');
+  if (!detailsTbody || !leftTbody || !rightTbody || !bottomTbody || !lowerLeftTbody || !lowerRightTbody) return;
+  financeSnapshotRows = entries;
+  currentFinanceOverview = overview;
+  updateSortableHeaderLabels('finance-details-tbody', financeDetailsSort);
+
+  if (!entries.length) {
+    renderFinanceSnapshotStatus('No finance snapshot data yet.');
+    document.getElementById('mc-fin-gbp').textContent = '—';
+    document.getElementById('mc-fin-gbp-sub').textContent = 'GBP — | HKD —';
+    document.getElementById('mc-fin-hkd').textContent = '—';
+    document.getElementById('mc-fin-hkd-sub').textContent = 'GBP — | HKD —';
+    document.getElementById('mc-fin-rate').textContent = '—';
+    return;
+  }
+
+  const currencyTotals = overview?.currency_totals || [];
+  const scenarioTotals = overview?.scenario_totals || [];
+  const fxRates = overview?.fx_rates_to_hkd || {};
+  const sortedEntries = sortFinanceRows(entries, financeDetailsSort);
+
+  detailsTbody.innerHTML = sortedEntries.slice(0, FINANCE_TABLE_PREVIEW_LIMIT).map(entry => `<tr>
+    <td>${entry.snapshot_date}</td>
+    <td>${entry.updated_at || '—'}</td>
+    <td>${entry.institution}</td>
+    <td>${entry.account}</td>
+    <td>${entry.currency}</td>
+    <td style="font-weight:600">${fmtAmt(entry.balance)}</td>
+    <td>${entry.account_type || ''}</td>
+    <td>${entry.notes || ''}</td>
+    <td>
+      <div class="row-actions">
+        <button class="btn-inline" type="button" onclick="editFinanceSnapshot(${entry.id})">Edit</button>
+        <button class="btn-inline danger" type="button" onclick="deleteFinanceSnapshot(${entry.id})">Delete</button>
+      </div>
+    </td>
+  </tr>`).join('');
+
+  const excluding = scenarioTotals.find(row => row.scenario === "Excluding Mum's Time D");
+  const including = scenarioTotals.find(row => row.scenario === "Including Mum's Time D");
+  const mumsTimeDRow = currencyTotals.find(row => row.currency === "Mum's Time D");
+  const baseCurrencyRows = currencyTotals.filter(row => row.currency !== "Mum's Time D");
+  const midpoint = Math.ceil(baseCurrencyRows.length / 2);
+  const leftRows = baseCurrencyRows.slice(0, midpoint);
+  const rightRows = baseCurrencyRows.slice(midpoint);
+
+  leftTbody.innerHTML = leftRows.map(row => `<tr><td>${row.currency}</td><td style="font-weight:600">${fmtAmt(row.balance)}</td></tr>`).join('');
+  rightTbody.innerHTML = rightRows.map(row => `<tr><td>${row.currency}</td><td style="font-weight:600">${fmtAmt(row.balance)}</td></tr>`).join('');
+  bottomTbody.innerHTML = mumsTimeDRow
+    ? `<tr><td>Mum's Time Deposit</td><td style="font-weight:600">${fmtAmt(mumsTimeDRow.balance)}</td></tr>`
+    : '';
+  lowerLeftTbody.innerHTML = [
+    excluding ? `<tr><td>Excl. Mum's Time D (GBP)</td><td style="font-weight:600">${fmtAmt(excluding.total_gbp)}</td></tr>` : '',
+    including ? `<tr><td>Incl. Mum's Time D (GBP)</td><td style="font-weight:600">${fmtAmt(including.total_gbp)}</td></tr>` : '',
+  ].filter(Boolean).join('');
+  lowerRightTbody.innerHTML = [
+    excluding ? `<tr><td>Excl. Mum's Time D (HKD)</td><td style="font-weight:600">${fmtAmt(excluding.total_hkd)}</td></tr>` : '',
+    including ? `<tr><td>Incl. Mum's Time D (HKD)</td><td style="font-weight:600">${fmtAmt(including.total_hkd)}</td></tr>` : '',
+  ].filter(Boolean).join('');
+
+  if (excluding) {
+    document.getElementById('mc-fin-gbp').textContent = fmtGBP(excluding.total_gbp);
+    document.getElementById('mc-fin-gbp-sub').textContent = `GBP ${fmtAmt(excluding.total_gbp)} | HKD ${fmtAmt(excluding.total_hkd)}`;
+  }
+  if (including) {
+    document.getElementById('mc-fin-hkd').textContent = fmtGBP(including.total_gbp);
+    document.getElementById('mc-fin-hkd-sub').textContent = `GBP ${fmtAmt(including.total_gbp)} | HKD ${fmtAmt(including.total_hkd)}`;
+  }
+  document.getElementById('mc-fin-rate').textContent = fxRates.GBP || overview?.rate_gbp_hkd || '—';
+
+  document.getElementById('fx-rate-gbp').value = fxRates.GBP || '';
+  document.getElementById('fx-rate-eur').value = fxRates.EUR || '';
+  document.getElementById('fx-rate-usd').value = fxRates.USD || '';
+  document.getElementById('fx-rate-jpy').value = fxRates.JPY || '';
+  document.getElementById('fx-rate-cad').value = fxRates.CAD || '';
+}
+
+function clearFinanceForm() {
+  editingFinanceSnapshotId = null;
+  document.getElementById('fin-date').value = toISODate(todayDate());
+  document.getElementById('fin-inst').value = '';
+  document.getElementById('fin-acct').value = '';
+  document.getElementById('fin-currency').value = 'GBP';
+  document.getElementById('fin-balance').value = '';
+  document.getElementById('fin-type').value = '';
+  document.getElementById('fin-notes').value = '';
+  setFinanceFormStatus();
+  updateFinanceSaveButton();
+}
+
+function setFinanceFormStatus(message = '', type = '') {
+  const statusEl = document.getElementById('finance-form-status');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.className = type ? `form-status ${type}` : 'form-status';
+}
+
+function setFinanceFxStatus(message = '', type = '') {
+  const statusEl = document.getElementById('finance-fx-status');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.className = type ? `form-status ${type}` : 'form-status';
+}
+
+function renderFinanceHistoryStatus(message, color = '#8492a6') {
+  const tbody = document.getElementById('finance-history-tbody');
+  if (!tbody) return;
+  financeHistoryRows = [];
+  updateSortableHeaderLabels('finance-history-tbody', financeHistorySort);
+  tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:${color};padding:20px">${message}</td></tr>`;
+}
+
+function renderFinanceHistory(entries) {
+  const tbody = document.getElementById('finance-history-tbody');
+  if (!tbody) return;
+  financeHistoryRows = entries;
+  updateSortableHeaderLabels('finance-history-tbody', financeHistorySort);
+
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#8492a6;padding:20px">No balance history for the selected range.</td></tr>';
+    return;
+  }
+
+  const derivedEntries = deriveFinanceHistoryRows(entries);
+  const sortedEntries = sortFinanceRows(derivedEntries, financeHistorySort);
+
+  tbody.innerHTML = sortedEntries.slice(0, FINANCE_TABLE_PREVIEW_LIMIT).map(entry => `<tr>
+    <td>${entry.snapshot_date}</td>
+    <td>${entry.updated_at || '—'}</td>
+    <td>${entry.institution}</td>
+    <td>${entry.account}</td>
+    <td>${entry.currency}</td>
+    <td style="font-weight:600">${fmtAmt(entry.balance)}</td>
+    <td>${entry.previous_balance === null || entry.previous_balance === undefined ? '' : fmtAmt(entry.previous_balance)}</td>
+    <td>${entry.related_record_item || ''}</td>
+    <td>${entry.signed_related_amount === null || entry.signed_related_amount === undefined ? '' : fmtAmt(entry.signed_related_amount)}</td>
+    <td>${entry.account_type || ''}</td>
+    <td>${entry.notes || ''}</td>
+  </tr>`).join('');
+}
+
+function populateFinanceHistoryAccountOptions(entries) {
+  const select = document.getElementById('finance-history-account-filter');
+  if (!select) return;
+  const selectedValue = select.value || 'All bank accounts';
+  const accounts = [...new Set(entries.map(entry => `${entry.institution} / ${entry.account} / ${entry.currency}`))].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = ['All bank accounts', ...accounts].map(option => `<option>${option}</option>`).join('');
+  select.value = ['All bank accounts', ...accounts].includes(selectedValue) ? selectedValue : 'All bank accounts';
+}
+
+function updateFinanceSaveButton() {
+  const saveButton = document.getElementById('finance-save-btn');
+  if (!saveButton) return;
+  saveButton.innerHTML = editingFinanceSnapshotId === null
+    ? '<i class="ti ti-check"></i>Save entry'
+    : '<i class="ti ti-device-floppy"></i>Update entry';
+}
+
+async function saveFinanceSnapshot() {
+  const payload = {
+    snapshot_date: document.getElementById('fin-date').value,
+    institution: document.getElementById('fin-inst').value.trim(),
+    account: document.getElementById('fin-acct').value.trim(),
+    currency: document.getElementById('fin-currency').value,
+    balance: (document.getElementById('fin-balance').value || '0').trim(),
+    account_type: document.getElementById('fin-type').value.trim() || null,
+    notes: document.getElementById('fin-notes').value.trim() || null,
+  };
+
+  if (!payload.snapshot_date || !payload.institution || !payload.account || !payload.balance) {
+    setFinanceFormStatus('Please complete snapshot date, institution, account, currency, and balance.', 'error');
+    return;
+  }
+
+  try {
+    if (editingFinanceSnapshotId === null) {
+      await apiPost('/finance/snapshot', payload);
+      clearFinanceForm();
+      setFinanceFormStatus('Finance snapshot saved.', 'success');
+    } else {
+      const updatedId = editingFinanceSnapshotId;
+      await apiPut(`/finance/snapshot/${editingFinanceSnapshotId}`, payload);
+      clearFinanceForm();
+      setFinanceFormStatus(`Snapshot #${updatedId} updated.`, 'success');
+    }
+    await loadFinancePage();
+  } catch (error) {
+    setFinanceFormStatus(`Finance snapshot save error: ${error.message}`, 'error');
+  }
+}
+
+function editFinanceSnapshot(entryId) {
+  const entry = financeSnapshotRows.find(row => row.id === entryId);
+  if (!entry) return;
+  editingFinanceSnapshotId = entryId;
+  document.getElementById('fin-date').value = entry.snapshot_date || '';
+  document.getElementById('fin-inst').value = entry.institution || '';
+  document.getElementById('fin-acct').value = entry.account || '';
+  document.getElementById('fin-currency').value = entry.currency || 'GBP';
+  document.getElementById('fin-balance').value = entry.balance || '';
+  document.getElementById('fin-type').value = entry.account_type || '';
+  document.getElementById('fin-notes').value = entry.notes || '';
+  setFinanceFormStatus(`Editing snapshot #${entryId}.`, 'success');
+  updateFinanceSaveButton();
+  document.getElementById('fin-inst').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('fin-inst').focus();
+}
+
+async function deleteFinanceSnapshot(entryId) {
+  const confirmed = window.confirm(`Delete finance snapshot #${entryId}? This cannot be undone.`);
+  if (!confirmed) return;
+
+  try {
+    await apiDelete(`/finance/snapshot/${entryId}`);
+    if (editingFinanceSnapshotId === entryId) {
+      clearFinanceForm();
+    }
+    setFinanceFormStatus(`Snapshot #${entryId} deleted.`, 'success');
+    await loadFinancePage();
+  } catch (error) {
+    setFinanceFormStatus(`Finance snapshot delete error: ${error.message}`, 'error');
+  }
+}
+
+async function loadFinancePage() {
+  renderFinanceSnapshotStatus('Loading finance snapshot…');
+  try {
+    const overview = await apiGet('/finance/overview');
+    renderFinanceSnapshot(overview.entries || [], overview);
+    populateFinanceHistoryAccountOptions(overview.entries || []);
+    const today = todayDate();
+    const monthStart = monthStartDate(today.getFullYear(), today.getMonth());
+    const historyStart = document.getElementById('finance-history-start');
+    const historyEnd = document.getElementById('finance-history-end');
+    if (historyStart && !historyStart.value) historyStart.value = toISODate(monthStart);
+    if (historyEnd && !historyEnd.value) historyEnd.value = toISODate(today);
+    await loadFinanceHistory();
+  } catch (error) {
+    renderFinanceSnapshotStatus(`Finance snapshot load error: ${error.message}`, '#c0392b');
+    renderFinanceHistoryStatus(`Finance history load error: ${error.message}`, '#c0392b');
+  }
+}
+
+function buildManualFinanceFxRatesPayload() {
+  const ratesToHkd = {
+    GBP: (document.getElementById('fx-rate-gbp').value || '').trim(),
+    HKD: '1.0000',
+    EUR: (document.getElementById('fx-rate-eur').value || '').trim(),
+    USD: (document.getElementById('fx-rate-usd').value || '').trim(),
+    JPY: (document.getElementById('fx-rate-jpy').value || '').trim(),
+    CAD: (document.getElementById('fx-rate-cad').value || '').trim(),
+  };
+
+  for (const [currency, value] of Object.entries(ratesToHkd)) {
+    const numeric = Number(value);
+    if (!(numeric > 0)) {
+      throw new Error(`Please enter a valid ${currency} to HKD rate.`);
+    }
+    ratesToHkd[currency] = numeric.toFixed(4);
+  }
+
+  return ratesToHkd;
+}
+
+async function saveManualFinanceFxRates() {
+  try {
+    const ratesToHkd = buildManualFinanceFxRatesPayload();
+    const result = await apiPut('/finance/fx-rates', {
+      rates_to_hkd: ratesToHkd,
+      source: 'Manual',
+    });
+    const savedRates = result.rates_to_hkd || ratesToHkd;
+    document.getElementById('fx-rate-gbp').value = savedRates.GBP || '';
+    document.getElementById('fx-rate-eur').value = savedRates.EUR || '';
+    document.getElementById('fx-rate-usd').value = savedRates.USD || '';
+    document.getElementById('fx-rate-jpy').value = savedRates.JPY || '';
+    document.getElementById('fx-rate-cad').value = savedRates.CAD || '';
+    setFinanceFxStatus('Manual FX rates saved.', 'success');
+    await loadFinancePage();
+  } catch (error) {
+    setFinanceFxStatus(`FX rate save error: ${error.message}`, 'error');
+  }
+}
+
+async function saveFinanceFxRates() {
+  try {
+    const response = await fetch('https://api.frankfurter.dev/v2/rates?base=GBP&quotes=HKD,USD,EUR,CAD,JPY');
+    if (!response.ok) {
+      throw new Error(`Frankfurter request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    const rates = Array.isArray(payload)
+      ? Object.fromEntries(payload.map((row) => [row.quote, row.rate]))
+      : (payload?.rates || {});
+    const hkdPerGbp = Number(rates.HKD || 0);
+    const usdPerGbp = Number(rates.USD || 0);
+    const eurPerGbp = Number(rates.EUR || 0);
+    const cadPerGbp = Number(rates.CAD || 0);
+    const jpyPerGbp = Number(rates.JPY || 0);
+
+    if (!(hkdPerGbp > 0 && usdPerGbp > 0 && eurPerGbp > 0 && cadPerGbp > 0 && jpyPerGbp > 0)) {
+      throw new Error('Frankfurter returned incomplete FX data.');
+    }
+
+    const ratesToHkd = {
+      GBP: hkdPerGbp.toFixed(4),
+      HKD: '1.0000',
+      USD: (hkdPerGbp / usdPerGbp).toFixed(4),
+      EUR: (hkdPerGbp / eurPerGbp).toFixed(4),
+      CAD: (hkdPerGbp / cadPerGbp).toFixed(4),
+      JPY: (hkdPerGbp / jpyPerGbp).toFixed(4),
+    };
+
+    const result = await apiPut('/finance/fx-rates', {
+      rates_to_hkd: ratesToHkd,
+      source: 'Frankfurter',
+    });
+    const savedRates = result.rates_to_hkd || ratesToHkd;
+    document.getElementById('fx-rate-gbp').value = savedRates.GBP || '';
+    document.getElementById('fx-rate-eur').value = savedRates.EUR || '';
+    document.getElementById('fx-rate-usd').value = savedRates.USD || '';
+    document.getElementById('fx-rate-jpy').value = savedRates.JPY || '';
+    document.getElementById('fx-rate-cad').value = savedRates.CAD || '';
+    setFinanceFxStatus('FX rates updated from Frankfurter.', 'success');
+    await loadFinancePage();
+  } catch (error) {
+    setFinanceFxStatus(`FX rate update error: ${error.message}`, 'error');
+  }
+}
+
+async function loadFinanceHistory() {
+  const startInput = document.getElementById('finance-history-start');
+  const endInput = document.getElementById('finance-history-end');
+  const accountSelect = document.getElementById('finance-history-account-filter');
+  if (!startInput || !endInput || !accountSelect) return;
+
+  const params = new URLSearchParams();
+  if (startInput.value) params.set('start_date', startInput.value);
+  if (endInput.value) params.set('end_date', endInput.value);
+  if (accountSelect.value && accountSelect.value !== 'All bank accounts') {
+    const [institution, account, currency] = accountSelect.value.split(' / ');
+    if (institution) params.set('institution', institution);
+    if (account) params.set('account', account);
+    if (currency) params.set('currency', currency);
+  }
+
+  renderFinanceHistoryStatus('Loading balance history…');
+  try {
+    const entries = await apiGet('/finance/snapshot/history?' + params.toString());
+    renderFinanceHistory(entries);
+  } catch (error) {
+    renderFinanceHistoryStatus(`Finance history load error: ${error.message}`, '#c0392b');
+  }
+}
+
 function renderExpensesStatus(message, color = '#8492a6') {
   const tbody = document.getElementById('expense-tbody');
   if (!tbody) return;
@@ -1766,6 +2253,10 @@ function loadPageData(page) {
     loadTaxPage();
     return;
   }
+  if (page === 'finance') {
+    loadFinancePage();
+    return;
+  }
   if (page === 'recurring') {
     loadRecurringPage();
   }
@@ -2288,9 +2779,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadTaxDue();
   });
 
+  document.getElementById('finance-history-start').addEventListener('change', () => {
+    loadFinanceHistory();
+  });
+
+  document.getElementById('finance-history-end').addEventListener('change', () => {
+    loadFinanceHistory();
+  });
+
+  document.getElementById('finance-history-account-filter').addEventListener('change', () => {
+    loadFinanceHistory();
+  });
+
   clearExpenseForm();
   clearIncomeForm();
   clearTaxForm();
+  clearFinanceForm();
   syncPeriodSelector();
   loadPageData('dashboard');
 });

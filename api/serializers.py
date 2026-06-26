@@ -209,6 +209,9 @@ def serialize_finance_snapshot(stored) -> dict[str, Any]:
         "balance": _dec(stored.balance),
         "account_type": stored.account_type,
         "notes": stored.notes,
+        "related_record_type": stored.related_record_type,
+        "related_record_item": stored.related_record_item,
+        "related_record_amount": _dec(stored.related_record_amount) if stored.related_record_amount is not None else None,
         "updated_at": stored.updated_at.strftime("%Y-%m-%d %H:%M"),
     }
 

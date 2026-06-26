@@ -18,6 +18,11 @@ from src.db import (
     upsert_hmrc_monthly_exchange_rates,
 )
 from src.import_csv import fetch_hmrc_monthly_rates
+from src.finance_dashboard_cache import (
+    get_finance_dashboard_cache,
+    set_finance_dashboard_cache,
+)
+from src.finance_fx import DEFAULT_FX_RATES_TO_HKD, load_fx_rates_to_hkd
 from src.reports import (
     build_category_spending_report,
     build_expense_transaction_total_gbp,
@@ -51,15 +56,6 @@ except (ImportError, AttributeError):
     build_monthly_category_trend_report = None
 
 from api.serializers import _dec
-
-FALLBACK_RATES_TO_HKD = {
-    "GBP": Decimal("10.3800"),
-    "HKD": Decimal("1.0000"),
-    "USD": Decimal("7.7800"),
-    "EUR": Decimal("9.0000"),
-    "CAD": Decimal("5.6000"),
-    "JPY": Decimal("0.0500"),
-}
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -177,6 +173,33 @@ def _build_period_label(period_mode: str, start_date: date, end_date: date) -> s
     return f"{start_date.isoformat()} to {end_date.isoformat()}"
 
 
+def _build_dashboard_finance_payload() -> dict:
+    finance_entries = fetch_finance_snapshot_entries()
+    currency_summary = build_finance_currency_summary(finance_entries)
+
+    rates_to_hkd = load_fx_rates_to_hkd()
+    if not rates_to_hkd:
+        rates_to_hkd = dict(DEFAULT_FX_RATES_TO_HKD)
+    rates_to_gbp = {c: Decimal("1") / r for c, r in rates_to_hkd.items()}
+    bicurrency = build_finance_bicurrency_totals(
+        finance_entries, rates_to_gbp=rates_to_gbp, rates_to_hkd=rates_to_hkd,
+    )
+
+    return {
+        "finance_currency_summary": [
+            {"currency": str(row["currency"]), "balance": _dec(row["balance"])}
+            for row in currency_summary
+        ],
+        "finance_totals": {
+            "total_gbp_excluding_mums_time_d": _dec(bicurrency.total_gbp_excluding_mums_time_d),
+            "total_hkd_excluding_mums_time_d": _dec(bicurrency.total_hkd_excluding_mums_time_d),
+            "total_gbp_including_mums_time_d": _dec(bicurrency.total_gbp_including_mums_time_d),
+            "total_hkd_including_mums_time_d": _dec(bicurrency.total_hkd_including_mums_time_d),
+            "rate_gbp_hkd": f"{bicurrency.rate_gbp_hkd:,.4f}",
+        },
+    }
+
+
 @router.get("/dashboard")
 def dashboard_report(
     period_mode: str = Query("Financial Year"),
@@ -193,8 +216,6 @@ def dashboard_report(
     transactions = fetch_transactions()
     incomes = fetch_income_transactions()
     tax_due_entries = fetch_income_tax_due_entries()
-    finance_entries = fetch_finance_snapshot_entries()
-
     tax_payments = _filter_tax_payments(transactions)
 
     filtered_incomes = filter_income_transactions_by_date_range(
@@ -234,7 +255,7 @@ def dashboard_report(
         tax_due_entries=filtered_tax_due,
         tax_payments=filtered_tax_payments,
         expenses=filtered_expenses,
-        finance_entries=finance_entries,
+        finance_entries=[],
         expense_month_rates_by_month=expense_rates or None,
         financial_year_expenses=financial_year_expenses,
     )
@@ -301,14 +322,6 @@ def dashboard_report(
     category_rows = _build_dashboard_category_rows(
         filtered_expenses, expense_rates or None,
     )
-    currency_summary = build_finance_currency_summary(finance_entries)
-
-    rates_to_hkd = dict(FALLBACK_RATES_TO_HKD)
-    rates_to_gbp = {c: Decimal("1") / r for c, r in rates_to_hkd.items()}
-    bicurrency = build_finance_bicurrency_totals(
-        finance_entries, rates_to_gbp=rates_to_gbp, rates_to_hkd=rates_to_hkd,
-    )
-
     breakout_rows = _build_expense_breakout_rows(
         filtered_expenses, expense_paid_ex_tax, expense_rates or None,
     )
@@ -330,17 +343,6 @@ def dashboard_report(
         "displayed_tax_gbp": _dec(summary.total_tax_amount_gbp),
         "total_expense_paid_gbp": _dec(expense_paid_ex_tax),
         "total_expense_used_gbp": _dec(expense_used_ex_tax),
-        "finance_currency_summary": [
-            {"currency": str(row["currency"]), "balance": _dec(row["balance"])}
-            for row in currency_summary
-        ],
-        "finance_totals": {
-            "total_gbp_excluding_mums_time_d": _dec(bicurrency.total_gbp_excluding_mums_time_d),
-            "total_hkd_excluding_mums_time_d": _dec(bicurrency.total_hkd_excluding_mums_time_d),
-            "total_gbp_including_mums_time_d": _dec(bicurrency.total_gbp_including_mums_time_d),
-            "total_hkd_including_mums_time_d": _dec(bicurrency.total_hkd_including_mums_time_d),
-            "rate_gbp_hkd": f"{bicurrency.rate_gbp_hkd:,.4f}",
-        },
         "category_spending": [
             {
                 "category": str(row["category"]),
@@ -354,6 +356,16 @@ def dashboard_report(
         "stacked_trend": stacked_trend,
         "period_label": _build_period_label(period_mode, start_date, end_date),
     }
+
+
+@router.get("/dashboard-finance")
+def dashboard_finance_report():
+    cached = get_finance_dashboard_cache()
+    if cached is not None:
+        return cached
+    payload = _build_dashboard_finance_payload()
+    set_finance_dashboard_cache(payload)
+    return payload
 
 
 @router.get("/category-spending")

@@ -1435,6 +1435,62 @@ def upsert_hmrc_monthly_exchange_rates(
     _run_with_reconnect(operation)
 
 
+def fetch_finance_reference_fx_rates() -> dict[str, Decimal]:
+    """Fetch saved finance reference FX rates from Supabase."""
+
+    sql = """
+        select distinct on (currency_code)
+            currency_code,
+            rate_to_hkd
+        from public.finance_reference_fx_rates
+        order by currency_code asc, fetched_at desc, id desc;
+    """
+
+    def operation(conn: PGConnection) -> dict[str, Decimal]:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            rows = cur.fetchall()
+        return {
+            str(row["currency_code"]).upper(): Decimal(row["rate_to_hkd"])
+            for row in rows
+        }
+
+    return _run_with_reconnect(operation)
+
+
+def upsert_finance_reference_fx_rates(
+    rates_to_hkd: dict[str, Decimal],
+    *,
+    source: str | None = None,
+) -> None:
+    """Append one new saved finance reference FX-rate snapshot in Supabase."""
+
+    sql = """
+        insert into public.finance_reference_fx_rates (
+            currency_code,
+            rate_to_hkd,
+            source,
+            fetched_at
+        )
+        values (%s, %s, %s, now())
+    """
+
+    def operation(conn: PGConnection) -> None:
+        with conn.cursor() as cur:
+            for currency_code, rate_to_hkd in rates_to_hkd.items():
+                cur.execute(
+                    sql,
+                    (
+                        currency_code.upper(),
+                        rate_to_hkd,
+                        source,
+                    ),
+                )
+        conn.commit()
+
+    _run_with_reconnect(operation)
+
+
 def update_income_transaction(
     income_transaction_id: int,
     income: IncomeTransaction,

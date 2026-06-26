@@ -10,6 +10,7 @@ from src.db import (
     fetch_exchange_records,
     insert_exchange_record_with_finance_link,
 )
+from src.finance_dashboard_cache import invalidate_finance_dashboard_cache
 from src.models import validate_exchange_record
 from api.serializers import _dec, _dec_rate
 
@@ -60,6 +61,7 @@ def list_exchanges():
 def create_exchange(body: ExchangeCreate):
     record = validate_exchange_record(body.model_dump())
     stored = insert_exchange_record_with_finance_link(record)
+    invalidate_finance_dashboard_cache()
     return _serialize_exchange(stored)
 
 
@@ -69,4 +71,5 @@ def delete_exchange_endpoint(exchange_id: int):
     if not deleted:
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Exchange #{exchange_id} could not be deleted"})
+    invalidate_finance_dashboard_cache()
     return {"deleted": True, "id": exchange_id}
