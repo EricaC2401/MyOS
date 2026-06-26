@@ -1,5 +1,4 @@
 // Dashboard page: fetch data and render
-let dashboardBarChart = null;
 let showAllTopCategories = false;
 
 async function loadDashboard(periodMode, startDate, endDate) {
@@ -23,7 +22,6 @@ async function loadDashboard(periodMode, startDate, endDate) {
 
   _lastDashboardData = data;
   renderDashboardMetrics(data.metrics);
-  renderDashboardChart(data.trend_data, data.stacked_trend, data.trend_type);
   renderTopCategories(data.category_spending);
   renderExpenseBreakout(data);
   await financePromise;
@@ -85,81 +83,10 @@ function renderDashboardMetrics(m) {
   document.getElementById('mc-sav-paid-sub').textContent = savingsRate(m.saving_paid_gbp, income);
 }
 
-function renderDashboardChart(trendData, stackedTrend, trendType) {
-  const canvas = document.getElementById('dashboard-bar-chart');
-  if (dashboardBarChart) dashboardBarChart.destroy();
-
-  const titleEl = document.getElementById('dashboard-chart-title');
-  if (titleEl) titleEl.textContent = trendType === 'daily' ? 'Expenses by day' : 'Expenses by month';
-
-  if (!trendData || !trendData.length) {
-    canvas.parentElement.style.display = 'none';
-    return;
-  }
-  canvas.parentElement.style.display = 'block';
-
-  // Use stacked category chart if available
-  if (stackedTrend && stackedTrend.length > 0) {
-    const labels = [...new Set(stackedTrend.map(r => r.label))];
-    const categories = [...new Set(stackedTrend.map(r => r.category))];
-    const datasets = categories.map(cat => {
-      const color = getCatColor(cat);
-      return {
-        label: cat,
-        data: labels.map(lbl => {
-          const row = stackedTrend.find(r => r.label === lbl && r.category === cat);
-          return row ? parseFloat(row.amount_gbp) : 0;
-        }),
-        backgroundColor: color,
-        borderWidth: 1,
-        borderColor: '#fff',
-        borderSkipped: false,
-      };
-    });
-
-    dashboardBarChart = new Chart(canvas, {
-      type: 'bar',
-      data: { labels, datasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: true, position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } },
-        scales: {
-          x: { stacked: true, grid: { display: false }, ticks: { color: '#8492a6', font: { size: 10 } } },
-          y: { stacked: true, grid: { color: '#f0f1f5' }, border: { display: false },
-            ticks: { color: '#8492a6', font: { size: 10 }, callback: v => '£' + Math.round(v) } },
-        },
-        interaction: { mode: 'index', intersect: false },
-      },
-    });
-  } else {
-    dashboardBarChart = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: trendData.map(r => r.label),
-        datasets: [{
-          label: 'Expenses',
-          data: trendData.map(r => parseFloat(r.amount_gbp)),
-          backgroundColor: '#534AB7',
-          borderRadius: 3, borderSkipped: false,
-        }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: '#8492a6', font: { size: 10 } } },
-          y: { grid: { color: '#f0f1f5' }, border: { display: false },
-            ticks: { color: '#8492a6', font: { size: 10 }, callback: v => '£' + Math.round(v) } },
-        },
-      },
-    });
-  }
-}
-
 function renderTopCategories(categories) {
   const el = document.getElementById('dashboard-top-cats');
   if (!categories || !categories.length) {
-    el.innerHTML = '<div class="card-title"><i class="ti ti-flame"></i>Top categories</div><div style="font-size:12px;color:#8492a6">No data</div>';
+    el.innerHTML = '<div class="card-title"><i class="ti ti-flame"></i>Top categories<span class="ct-right">GBP 0.00</span></div><div style="font-size:12px;color:#8492a6">No data</div>';
     return;
   }
 
@@ -169,7 +96,7 @@ function renderTopCategories(categories) {
   const visibleRows = showAllTopCategories ? positiveRows : positiveRows.slice(0, 5);
   const remaining = positiveRows.length - visibleRows.length;
 
-  let html = '<div class="card-title"><i class="ti ti-flame"></i>Top categories</div>';
+  let html = `<div class="card-title"><i class="ti ti-flame"></i>Top categories<span class="ct-right">GBP ${fmtAmt(total)}</span></div>`;
   visibleRows.forEach((r, i) => {
     const amt = parseFloat(r.amount_gbp);
     const pct = total > 0 ? Math.round(amt / total * 100) : 0;
