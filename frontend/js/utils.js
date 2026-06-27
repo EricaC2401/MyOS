@@ -179,3 +179,83 @@ function parseISODate(value) {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
+
+// ── Classification super-groups ──
+
+let classificationData = [];
+const SUPER_GROUP_FALLBACK = 'Other Living Expense';
+
+async function loadClassifications() {
+  try {
+    classificationData = await apiGet('/classifications');
+  } catch (e) {
+    classificationData = [];
+  }
+  return classificationData;
+}
+
+function getClassification(expenseGroup, expenseCategory) {
+  if (!classificationData.length) return SUPER_GROUP_FALLBACK;
+  const normGroup = (expenseGroup || '').trim();
+  const normCat = (expenseCategory || '').trim();
+
+  for (const cg of classificationData) {
+    for (const m of cg.mappings) {
+      if (m.expense_group === normGroup && m.expense_category && m.expense_category === normCat) {
+        return cg.name;
+      }
+    }
+  }
+  for (const cg of classificationData) {
+    for (const m of cg.mappings) {
+      if (m.expense_group === normGroup && !m.expense_category) {
+        return cg.name;
+      }
+    }
+  }
+  return SUPER_GROUP_FALLBACK;
+}
+
+function getClassificationColor(name) {
+  const cg = classificationData.find(g => g.name === name);
+  return cg ? cg.color : '#8492a6';
+}
+
+function aggregateBySuperGroup(transactions) {
+  const totals = {};
+  for (const t of transactions) {
+    const sg = getClassification(t.group || t.group_name || '', t.category || '');
+    totals[sg] = (totals[sg] || 0) + (parseFloat(t.amount_gbp) || 0);
+  }
+  const order = classificationData.map(g => g.name);
+  return order
+    .filter(sg => totals[sg] && totals[sg] > 0)
+    .map(sg => ({ superGroup: sg, amount_gbp: totals[sg], color: getClassificationColor(sg) }));
+}
+
+// ── Income classifications ──
+
+let incomeClassificationData = null;
+
+async function loadIncomeClassifications() {
+  try {
+    incomeClassificationData = await apiGet('/income-classifications');
+  } catch (e) {
+    incomeClassificationData = null;
+  }
+  return incomeClassificationData;
+}
+
+function getIncomeSourceColor(sourceName) {
+  if (!incomeClassificationData) return '#8492a6';
+  const src = incomeClassificationData.all_sources?.find(s => s.source_name === sourceName);
+  return src ? src.color : '#8492a6';
+}
+
+function getIncomeClassificationForSource(sourceName) {
+  if (!incomeClassificationData) return null;
+  const src = incomeClassificationData.all_sources?.find(s => s.source_name === sourceName);
+  if (!src?.classification_group_id) return null;
+  const grp = incomeClassificationData.groups?.find(g => g.id === src.classification_group_id);
+  return grp ? grp.name : null;
+}

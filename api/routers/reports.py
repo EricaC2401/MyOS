@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import calendar
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
@@ -177,6 +179,33 @@ def _build_dashboard_category_rows(transactions, month_rates):
     )
 
 
+def _build_dashboard_income_source_rows(incomes):
+    totals_gbp: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+
+    for income in incomes:
+        amount_gbp = (
+            Decimal(income.gross_amount_gbp)
+            if income.gross_amount_gbp is not None
+            else (Decimal(income.gross_amount) if income.currency == "GBP" else None)
+        )
+        if amount_gbp is None or amount_gbp <= 0:
+            continue
+        source = str(income.source or "Other").strip() or "Other"
+        totals_gbp[source] += amount_gbp
+
+    return sorted(
+        (
+            {
+                "source": source,
+                "amount_gbp": amount_gbp,
+            }
+            for source, amount_gbp in totals_gbp.items()
+        ),
+        key=lambda row: (row["amount_gbp"], row["source"]),
+        reverse=True,
+    )
+
+
 def _build_period_label(period_mode: str, start_date: date, end_date: date) -> str:
     normalized_mode = " ".join(str(period_mode).split()).casefold()
 
@@ -246,9 +275,18 @@ def reports_summary(
         ),
         Decimal("0.00"),
     )
+    gbp_only = sum(
+        (
+            Decimal(transaction.amount_gbp or 0)
+            for transaction in filtered
+            if transaction.amount_hkd is None or Decimal(transaction.amount_hkd or 0) <= 0
+        ),
+        Decimal("0.00"),
+    )
 
     return {
         "total_gbp": _dec(total_gbp),
+        "gbp_only": _dec(gbp_only),
         "total_hkd": _dec(total_hkd),
         "transaction_count": len(filtered),
     }
@@ -376,8 +414,22 @@ def dashboard_report(
     category_rows = _build_dashboard_category_rows(
         filtered_expenses, expense_rates or None,
     )
+    income_source_rows = _build_dashboard_income_source_rows(filtered_incomes)
     breakout_rows = _build_expense_breakout_rows(
         filtered_expenses, expense_paid_ex_tax, expense_rates or None,
+    )
+
+    fy_start_for_tax = get_financial_year_start(start_date)
+    fy_end_for_tax = get_financial_year_end(start_date)
+    fy_tax_payments = filter_transactions_by_date_range(
+        tax_payments, start_date=fy_start_for_tax, end_date=fy_end_for_tax,
+    )
+    fy_tax_total = sum(
+        (t.amount_gbp or Decimal(0)) for t in fy_tax_payments
+    )
+    tax_paid_monthly = fy_tax_total / 12
+    period_tax_paid = sum(
+        (t.amount_gbp or Decimal(0)) for t in filtered_tax_payments
     )
 
     return {
@@ -392,6 +444,9 @@ def dashboard_report(
             "saving_used_gbp": _dec(saving_used),
             "expense_gbp": _dec(summary.expense_gbp),
             "expense_hkd": _dec(summary.expense_hkd),
+            "tax_paid_monthly_gbp": _dec(tax_paid_monthly),
+            "fy_tax_total_gbp": _dec(fy_tax_total),
+            "period_tax_paid_gbp": _dec(period_tax_paid),
         },
         "expense_breakout": breakout_rows,
         "displayed_tax_gbp": _dec(summary.total_tax_amount_gbp),
@@ -405,11 +460,69 @@ def dashboard_report(
             }
             for row in category_rows
         ],
+        "income_source_spending": [
+            {
+                "source": str(row["source"]),
+                "amount_gbp": _dec(row["amount_gbp"]),
+            }
+            for row in income_source_rows
+        ],
         "trend_type": trend_type,
         "trend_data": trend_data,
         "stacked_trend": stacked_trend,
         "period_label": _build_period_label(period_mode, start_date, end_date),
+        "group_category_spending": _build_group_category_spending(filtered_expenses, expense_rates or None),
+        "group_category_spending_used": _build_group_category_spending_used(
+            filtered_expenses,
+            financial_year_expenses if financial_year_expenses is not None else filtered_expenses,
+            expense_rates or None,
+        ),
     }
+
+
+def _build_group_category_spending_used(transactions, fy_transactions, month_rates):
+    """Like _build_group_category_spending but with Car Related: Annual annualised."""
+    ANNUAL_CAT = "Car Related: Annual"
+    totals: dict[tuple[str, str], Decimal] = {}
+    for t in transactions:
+        grp = (t.group_name or "").strip()
+        cat = (t.category or "").strip()
+        if cat == ANNUAL_CAT:
+            continue
+        key = (grp, cat)
+        gbp = build_expense_transaction_total_gbp(t, month_rates_by_month=month_rates)
+        totals[key] = totals.get(key, Decimal(0)) + gbp
+
+    fy_annual_total = Decimal(0)
+    for t in fy_transactions:
+        cat = (t.category or "").strip()
+        if cat == ANNUAL_CAT:
+            fy_annual_total += build_expense_transaction_total_gbp(t, month_rates_by_month=month_rates)
+    if fy_annual_total:
+        grp = "Living"
+        totals[(grp, ANNUAL_CAT)] = (fy_annual_total / Decimal(12)).quantize(Decimal("0.01"))
+
+    return [
+        {"group": grp, "category": cat, "amount_gbp": _dec(amt)}
+        for (grp, cat), amt in sorted(totals.items())
+        if amt != 0
+    ]
+
+
+def _build_group_category_spending(transactions, month_rates):
+    """Return per (group_name, category) GBP totals for classification."""
+    totals: dict[tuple[str, str], Decimal] = {}
+    for t in transactions:
+        grp = (t.group_name or "").strip()
+        cat = (t.category or "").strip()
+        key = (grp, cat)
+        gbp = build_expense_transaction_total_gbp(t, month_rates_by_month=month_rates)
+        totals[key] = totals.get(key, Decimal(0)) + gbp
+    return [
+        {"group": grp, "category": cat, "amount_gbp": _dec(amt)}
+        for (grp, cat), amt in sorted(totals.items())
+        if amt != 0
+    ]
 
 
 @router.get("/dashboard-finance")
@@ -518,3 +631,177 @@ def largest_expenses(
         }
         for t in rows
     ]
+
+
+def _build_month_ranges(year_type: str, year: int) -> list[dict]:
+    today = date.today()
+    months = []
+    if year_type == "financial":
+        for i in range(12):
+            m = 4 + i
+            y = year + (m - 1) // 12
+            actual_m = ((m - 1) % 12) + 1
+            start = date(y, actual_m, 6)
+            next_m = actual_m + 1
+            next_y = y
+            if next_m > 12:
+                next_m = 1
+                next_y += 1
+            end = date(next_y, next_m, 5)
+            if end > today:
+                end = today
+            months.append({
+                "label": start.strftime("%b %Y"),
+                "start_date": start,
+                "end_date": end,
+            })
+    else:
+        for m in range(1, 13):
+            start = date(year, m, 1)
+            last_day = calendar.monthrange(year, m)[1]
+            end = date(year, m, last_day)
+            if end > today:
+                end = today
+            months.append({
+                "label": start.strftime("%b %Y"),
+                "start_date": start,
+                "end_date": end,
+            })
+    return months
+
+
+@router.get("/monthly-overview")
+def monthly_overview_report(
+    year_type: str = Query("financial"),
+    year: int = Query(None),
+):
+    if year is None:
+        today = date.today()
+        if year_type == "financial":
+            fy_start = get_financial_year_start(today)
+            year = fy_start.year
+        else:
+            year = today.year
+
+    months = _build_month_ranges(year_type, year)
+
+    overall_start = months[0]["start_date"]
+    overall_end = months[-1]["end_date"]
+
+    all_expenses = fetch_transactions()
+    all_incomes = fetch_income_transactions()
+    all_tax_due = fetch_income_tax_due_entries()
+    all_tax_payments = _filter_tax_payments(all_expenses)
+
+    year_expenses = filter_transactions_by_date_range(
+        all_expenses, start_date=overall_start, end_date=overall_end,
+    )
+    year_incomes = filter_income_transactions_by_date_range(
+        all_incomes, start_date=overall_start, end_date=overall_end,
+    )
+
+    month_rates = _get_expense_month_rates(all_expenses)
+
+    year_label = (
+        f"{year}/{str(year + 1)[-2:]}" if year_type == "financial" else str(year)
+    )
+
+    fy_cache: dict[int, dict] = {}
+    def _get_fy_data(d: date) -> dict:
+        fy_start = get_financial_year_start(d)
+        fy_year = fy_start.year
+        if fy_year not in fy_cache:
+            fy_end = get_financial_year_end(d)
+            fy_due = filter_tax_due_entries_by_date_range(
+                all_tax_due, start_date=fy_start, end_date=fy_end,
+            )
+            fy_expenses = filter_transactions_by_date_range(
+                all_expenses, start_date=fy_start, end_date=fy_end,
+            )
+            fy_cache[fy_year] = {
+                "tax_total": sum(Decimal(td.amount_gbp or 0) for td in fy_due),
+                "expenses": fy_expenses,
+            }
+        return fy_cache[fy_year]
+
+    def _get_monthly_tax_allocation(d: date) -> Decimal:
+        return (_get_fy_data(d)["tax_total"] / 12).quantize(Decimal("0.01"))
+
+    result_months = []
+    for m in months:
+        empty_metrics = {
+            "gross_income_gbp": "0.00",
+            "tax_liability_gbp": "0.00",
+            "expense_paid_gbp": "0.00",
+            "expense_used_gbp": "0.00",
+            "saving_paid_gbp": "0.00",
+            "saving_used_gbp": "0.00",
+            "net_cash_flow_gbp": "0.00",
+        }
+        if m["start_date"] > m["end_date"]:
+            result_months.append({
+                "label": m["label"],
+                "start_date": m["start_date"].isoformat(),
+                "end_date": m["end_date"].isoformat(),
+                "group_category_spending": [],
+                "group_category_spending_used": [],
+                "income_source_spending": [],
+                "metrics": empty_metrics,
+            })
+            continue
+        m_expenses = filter_transactions_by_date_range(
+            year_expenses, start_date=m["start_date"], end_date=m["end_date"],
+        )
+        m_incomes = filter_income_transactions_by_date_range(
+            year_incomes, start_date=m["start_date"], end_date=m["end_date"],
+        )
+        m_tax_payments = filter_transactions_by_date_range(
+            all_tax_payments, start_date=m["start_date"], end_date=m["end_date"],
+        )
+
+        gross_income = sum(
+            (Decimal(inc.gross_amount_gbp) if inc.gross_amount_gbp else
+             Decimal(inc.gross_amount) if inc.currency == "GBP" else Decimal(0))
+            for inc in m_incomes
+        )
+        tax_liability = _get_monthly_tax_allocation(m["start_date"])
+        expense_paid = sum(
+            build_expense_transaction_total_gbp(t, month_rates_by_month=month_rates)
+            for t in m_expenses
+            if not _is_tax_payment_group(t.group_name)
+        )
+        period_tax_paid = sum(
+            (t.amount_gbp or Decimal(0)) for t in m_tax_payments
+        )
+
+        fy_data = _get_fy_data(m["start_date"])
+        gcs_used = _build_group_category_spending_used(m_expenses, fy_data["expenses"], month_rates)
+        expense_used = sum(Decimal(r["amount_gbp"]) for r in gcs_used)
+
+        saving_paid = gross_income - expense_paid - tax_liability
+        saving_used = gross_income - expense_used - tax_liability
+        net_cash_flow = gross_income - expense_paid - period_tax_paid
+
+        result_months.append({
+            "label": m["label"],
+            "start_date": m["start_date"].isoformat(),
+            "end_date": m["end_date"].isoformat(),
+            "group_category_spending": _build_group_category_spending(m_expenses, month_rates),
+            "group_category_spending_used": gcs_used,
+            "income_source_spending": _build_dashboard_income_source_rows(m_incomes),
+            "metrics": {
+                "gross_income_gbp": _dec(gross_income),
+                "tax_liability_gbp": _dec(tax_liability),
+                "expense_paid_gbp": _dec(expense_paid),
+                "expense_used_gbp": _dec(expense_used),
+                "saving_paid_gbp": _dec(saving_paid),
+                "saving_used_gbp": _dec(saving_used),
+                "net_cash_flow_gbp": _dec(net_cash_flow),
+            },
+        })
+
+    return {
+        "year_type": year_type,
+        "year_label": year_label,
+        "months": result_months,
+    }

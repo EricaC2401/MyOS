@@ -208,6 +208,8 @@ LINKED_PAYMENT_METHODS = {
     "HSBC HK HKD": ("HSBC HK", "HKD", "HKD"),
     "HSBC UK Savings": ("HSBC UK", "Savings", "GBP"),
     "TopCashback": ("TopCashback", "Cashback", "GBP"),
+    "Hangseng HKD Savings": ("Hangseng", "HKD Savings", "HKD"),
+    "Hangseng I-HKD Saving": ("Hangseng", "I-HKD Saving", "HKD"),
 }
 
 
@@ -2872,6 +2874,261 @@ def delete_finance_snapshot_account_history(
     def operation(conn: PGConnection) -> bool:
         with conn.cursor() as cur:
             cur.execute(sql, (institution, account, currency))
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+
+    return _run_with_reconnect(operation)
+
+
+# ── Classification groups ──────────────────────────────────────────
+
+@dataclass(frozen=True)
+class StoredClassificationGroup:
+    id: int
+    name: str
+    color: str
+    sort_order: int
+
+
+@dataclass(frozen=True)
+class StoredClassificationMapping:
+    id: int
+    classification_group_id: int
+    expense_group: str
+    expense_category: str | None
+
+
+def fetch_classification_groups():
+    sql = """
+        SELECT id, name, color, sort_order
+        FROM public.classification_groups
+        ORDER BY sort_order, name
+    """
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            return [
+                StoredClassificationGroup(id=r["id"], name=r["name"], color=r["color"], sort_order=r["sort_order"])
+                for r in cur.fetchall()
+            ]
+
+    return _run_with_reconnect(operation)
+
+
+def fetch_classification_mappings():
+    sql = """
+        SELECT id, classification_group_id, expense_group, expense_category
+        FROM public.classification_mappings
+        ORDER BY expense_group, expense_category
+    """
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            return [
+                StoredClassificationMapping(id=r["id"], classification_group_id=r["classification_group_id"],
+                                            expense_group=r["expense_group"], expense_category=r["expense_category"])
+                for r in cur.fetchall()
+            ]
+
+    return _run_with_reconnect(operation)
+
+
+def insert_classification_group(name: str, color: str = '#8492a6', sort_order: int = 0):
+    sql = """
+        INSERT INTO public.classification_groups (name, color, sort_order)
+        VALUES (%s, %s, %s)
+        RETURNING id, name, color, sort_order
+    """
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (name, color, sort_order))
+            r = cur.fetchone()
+        conn.commit()
+        return StoredClassificationGroup(id=r["id"], name=r["name"], color=r["color"], sort_order=r["sort_order"])
+
+    return _run_with_reconnect(operation)
+
+
+def update_classification_group(group_id: int, name: str, color: str, sort_order: int):
+    sql = """
+        UPDATE public.classification_groups
+        SET name = %s, color = %s, sort_order = %s
+        WHERE id = %s
+        RETURNING id, name, color, sort_order
+    """
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (name, color, sort_order, group_id))
+            r = cur.fetchone()
+        conn.commit()
+        if r is None:
+            return None
+        return StoredClassificationGroup(id=r["id"], name=r["name"], color=r["color"], sort_order=r["sort_order"])
+
+    return _run_with_reconnect(operation)
+
+
+def delete_classification_group(group_id: int):
+    sql = "DELETE FROM public.classification_groups WHERE id = %s"
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (group_id,))
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+
+    return _run_with_reconnect(operation)
+
+
+def insert_classification_mapping(classification_group_id: int, expense_group: str,
+                                  expense_category: str | None = None):
+    sql = """
+        INSERT INTO public.classification_mappings (classification_group_id, expense_group, expense_category)
+        VALUES (%s, %s, %s)
+        RETURNING id, classification_group_id, expense_group, expense_category
+    """
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (classification_group_id, expense_group, expense_category))
+            r = cur.fetchone()
+        conn.commit()
+        return StoredClassificationMapping(id=r[0], classification_group_id=r[1],
+                                           expense_group=r[2], expense_category=r[3])
+
+    return _run_with_reconnect(operation)
+
+
+def delete_classification_mapping(mapping_id: int):
+    sql = "DELETE FROM public.classification_mappings WHERE id = %s"
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (mapping_id,))
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+
+    return _run_with_reconnect(operation)
+
+
+# ── Income classification groups ───────────────────────────────────
+
+@dataclass(frozen=True)
+class StoredIncomeClassificationGroup:
+    id: int
+    name: str
+    color: str
+    sort_order: int
+
+
+@dataclass(frozen=True)
+class StoredIncomeSourceConfig:
+    id: int
+    source_name: str
+    color: str
+    income_classification_group_id: int | None
+
+
+def fetch_income_classification_groups():
+    sql = "SELECT id, name, color, sort_order FROM public.income_classification_groups ORDER BY sort_order, name"
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            return [StoredIncomeClassificationGroup(
+                id=r["id"], name=r["name"], color=r["color"], sort_order=r["sort_order"]
+            ) for r in cur.fetchall()]
+
+    return _run_with_reconnect(operation)
+
+
+def fetch_income_source_configs():
+    sql = "SELECT id, source_name, color, income_classification_group_id FROM public.income_source_config ORDER BY source_name"
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            return [StoredIncomeSourceConfig(
+                id=r["id"], source_name=r["source_name"], color=r["color"],
+                income_classification_group_id=r["income_classification_group_id"]
+            ) for r in cur.fetchall()]
+
+    return _run_with_reconnect(operation)
+
+
+def insert_income_classification_group(name: str, color: str = '#8492a6', sort_order: int = 0):
+    sql = """INSERT INTO public.income_classification_groups (name, color, sort_order)
+             VALUES (%s, %s, %s) RETURNING id, name, color, sort_order"""
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (name, color, sort_order))
+            r = cur.fetchone()
+        conn.commit()
+        return StoredIncomeClassificationGroup(id=r["id"], name=r["name"], color=r["color"], sort_order=r["sort_order"])
+
+    return _run_with_reconnect(operation)
+
+
+def update_income_classification_group(group_id: int, name: str, color: str, sort_order: int):
+    sql = """UPDATE public.income_classification_groups SET name=%s, color=%s, sort_order=%s
+             WHERE id=%s RETURNING id, name, color, sort_order"""
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (name, color, sort_order, group_id))
+            r = cur.fetchone()
+        conn.commit()
+        return StoredIncomeClassificationGroup(id=r["id"], name=r["name"], color=r["color"], sort_order=r["sort_order"]) if r else None
+
+    return _run_with_reconnect(operation)
+
+
+def delete_income_classification_group(group_id: int):
+    sql = "DELETE FROM public.income_classification_groups WHERE id = %s"
+
+    def operation(conn: PGConnection) -> bool:
+        with conn.cursor() as cur:
+            cur.execute(sql, (group_id,))
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+
+    return _run_with_reconnect(operation)
+
+
+def upsert_income_source_config(source_name: str, color: str, classification_group_id: int | None = None):
+    sql = """INSERT INTO public.income_source_config (source_name, color, income_classification_group_id)
+             VALUES (%s, %s, %s)
+             ON CONFLICT (source_name) DO UPDATE SET color = EXCLUDED.color, income_classification_group_id = EXCLUDED.income_classification_group_id
+             RETURNING id, source_name, color, income_classification_group_id"""
+
+    def operation(conn: PGConnection):
+        with conn.cursor() as cur:
+            cur.execute(sql, (source_name, color, classification_group_id))
+            r = cur.fetchone()
+        conn.commit()
+        return StoredIncomeSourceConfig(
+            id=r["id"], source_name=r["source_name"], color=r["color"],
+            income_classification_group_id=r["income_classification_group_id"]
+        )
+
+    return _run_with_reconnect(operation)
+
+
+def delete_income_source_config(config_id: int):
+    sql = "DELETE FROM public.income_source_config WHERE id = %s"
+
+    def operation(conn: PGConnection) -> bool:
+        with conn.cursor() as cur:
+            cur.execute(sql, (config_id,))
             deleted = cur.rowcount > 0
         conn.commit()
         return deleted

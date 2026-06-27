@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://127.0.0.1:8000/api/classifications)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"http://localhost:8000/api/income?\")",
+      "Bash(curl -s \"http://localhost:8000/api/reports/dashboard?period_mode=Month&start_date=2025-12-01&end_date=2025-12-31\")",
+      "Bash(curl -s \"http://localhost:8000/api/reports/summary?start_date=2025-12-01&end_date=2025-12-31\")",
+      "Bash(curl -s \"http://localhost:8000/api/reports/category-spending?start_date=2025-12-01&end_date=2025-12-31\")",
+      "Bash(python3 -c \"import json,sys; rows=json.load\\(sys.stdin\\); [print\\(r\\) for r in rows[:3]]\")",
+      "Bash(curl -s \"http://localhost:8000/api/reports/dashboard?period_mode=Custom&start_date=2026-06-01&end_date=2026-06-27\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('OK' if 'group_category_spending' in d else d\\)\")",
+      "Bash(curl -s \"http://localhost:8000/api/reports/dashboard?period_mode=Custom&start_date=2026-06-01&end_date=2026-06-27\" -o /dev/null -w \"%{http_code}\")"
+    ]
+  }
+}

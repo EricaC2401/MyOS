@@ -10,11 +10,15 @@ const pages = {
   reports:   { title: 'Reports', action: '', pills: false },
   import:    { title: 'Import', action: '', pills: false },
   export:    { title: 'Export', action: '', pills: false },
+  'monthly-overview': { title: 'Monthly overview', action: '', pills: false },
+  'data-notes': { title: 'Data caveats', action: '', pills: false },
+  settings:  { title: 'Settings', action: '', pills: false },
 };
 
 const TAX_DEFAULT_START_DATE = '2021-04-01';
 
 let currentPage = 'dashboard';
+let dashboardBasis = 'paid';
 let currentPeriodMode = 'Month';
 let currentPeriodOptions = [];
 let customPeriod = {
@@ -22,6 +26,12 @@ let customPeriod = {
   end: toISODate(new Date()),
 };
 const selectedPeriodKeys = {};
+let moYearType = 'calendar';
+let moBasis = 'paid';
+let moExpFilter = 'all';
+let moCharts = [];
+let moTrendChart = null;
+let _lastMoData = null;
 let expenseMetadata = null;
 let expensePeriodMode = 'Month';
 let expensePeriodOptions = [];
@@ -62,7 +72,8 @@ const FINANCE_TABLE_PREVIEW_LIMIT = 6;
 let categoryCatalog = [];
 let categoryGroups = [];
 let categoryManagerAvailable = true;
-let reportCurrency = 'GBP';
+let reportCurrency = 'TOTAL';
+let reportBreakdownMode = 'category';
 let reportCategoryChartType = 'bar';
 let reportLivingChartType = 'bar';
 let reportTrendChartType = 'line';
@@ -70,6 +81,13 @@ let reportCategoryChart = null;
 let reportLivingChart = null;
 let reportTrendChart = null;
 let currentReportsData = null;
+let reportPeriodMode = 'Month';
+let reportPeriodOptions = [];
+const reportSelectedPeriodKeys = {};
+let reportCustomPeriod = {
+  start: toISODate(TRACKING_START_DATE),
+  end: toISODate(new Date()),
+};
 
 function normalizeText(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
@@ -314,6 +332,7 @@ function syncPeriodSelector() {
     select.value = activeKey;
     selectedPeriodKeys[currentPeriodMode] = activeKey;
   }
+  updatePeriodNavButtons();
 }
 
 function getSelectedPeriodOption() {
@@ -345,7 +364,7 @@ function getAllKnownGroups() {
     ...categoryGroups,
     ...(expenseMetadata?.groups || []),
     'Living',
-    'TaxPayment',
+    'Tax Payment',
   ].map(normalizeText).filter(Boolean));
   return [...groups].sort((a, b) => a.localeCompare(b));
 }
@@ -398,7 +417,7 @@ async function buildFallbackCategoryCatalog() {
       const [group_name, category] = key.split('\t');
       return { id: id--, category, group_name, usage_count: count, is_active: true };
     });
-  } catch {
+  } catch (e) {
     return [];
   }
 }
@@ -2400,8 +2419,23 @@ function nav(id, el) {
   document.getElementById('period-pills').style.display = p.pills ? 'flex' : 'none';
 
   currentPage = id;
+  const basisToggle = document.getElementById('topbar-basis-toggle');
+  if (basisToggle) basisToggle.style.display = id === 'dashboard' ? 'flex' : 'none';
   syncPeriodSelector();
   loadPageData(id);
+}
+
+function setDashboardBasis(basis, btn) {
+  dashboardBasis = basis;
+  btn.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (_lastDashboardData) {
+    renderDashboardMetrics(_lastDashboardData.metrics);
+    renderExpenseBreakout(_lastDashboardData);
+    renderTopCategories(_lastDashboardData);
+    renderExpenseMix(_lastDashboardData);
+    try { renderDashboardOverviewChart(_lastDashboardData.metrics); } catch (e) {}
+  }
 }
 
 function setPeriod(el, mode) {
@@ -2410,6 +2444,26 @@ function setPeriod(el, mode) {
   currentPeriodMode = mode;
   syncPeriodSelector();
   loadPageData(currentPage);
+}
+
+function stepPeriod(direction) {
+  const sel = document.getElementById('period-selector');
+  if (!sel || sel.style.display === 'none') return;
+  const idx = sel.selectedIndex - direction;
+  if (idx < 0 || idx >= sel.options.length) return;
+  sel.selectedIndex = idx;
+  selectedPeriodKeys[currentPeriodMode] = sel.value;
+  updatePeriodNavButtons();
+  loadPageData(currentPage);
+}
+
+function updatePeriodNavButtons() {
+  const sel = document.getElementById('period-selector');
+  const prev = document.getElementById('period-prev');
+  const next = document.getElementById('period-next');
+  if (!sel || !prev || !next) return;
+  prev.disabled = sel.selectedIndex >= sel.options.length - 1;
+  next.disabled = sel.selectedIndex <= 0;
 }
 
 function loadPageData(page) {
@@ -2441,6 +2495,15 @@ function loadPageData(page) {
   }
   if (page === 'reports') {
     loadReports();
+    return;
+  }
+  if (page === 'settings') {
+    loadSettingsPage();
+    return;
+  }
+  if (page === 'monthly-overview') {
+    loadMonthlyOverview();
+    return;
   }
 }
 
@@ -2475,28 +2538,61 @@ function getLatestReportDate() {
 }
 
 function getReportDates() {
-  const periodSelect = document.getElementById('report-period-filter');
-  const mode = periodSelect?.value || 'Financial year';
+  if (reportPeriodMode === 'Custom') {
+    return { start: reportCustomPeriod.start, end: reportCustomPeriod.end };
+  }
+  const sel = document.getElementById('report-period-selector');
+  const key = sel?.value || '';
+  const opt = reportPeriodOptions.find(o => o.key === key);
+  if (opt) return { start: opt.start, end: opt.end };
   const latestDate = getLatestReportDate();
-
-  if (mode === 'Month') {
-    return {
-      start: toISODate(monthStartDate(latestDate.getFullYear(), latestDate.getMonth())),
-      end: toISODate(latestDate),
-    };
-  }
-
-  if (mode === 'Calendar year') {
-    return {
-      start: `${latestDate.getFullYear()}-01-01`,
-      end: toISODate(latestDate),
-    };
-  }
-
   return {
-    start: toISODate(getFinancialYearStart(latestDate)),
+    start: toISODate(monthStartDate(latestDate.getFullYear(), latestDate.getMonth())),
     end: toISODate(latestDate),
   };
+}
+
+function setReportPeriod(btn, mode) {
+  reportPeriodMode = mode;
+  btn.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  syncReportPeriodSelector();
+  loadReports();
+}
+
+function syncReportPeriodSelector() {
+  const selWrap = document.getElementById('report-period-selector-wrap');
+  const customWrap = document.getElementById('report-custom-period-wrap');
+  if (reportPeriodMode === 'Custom') {
+    if (selWrap) selWrap.style.display = 'none';
+    if (customWrap) customWrap.style.display = 'flex';
+    const startInput = document.getElementById('report-custom-start');
+    const endInput = document.getElementById('report-custom-end');
+    if (startInput) startInput.value = reportCustomPeriod.start;
+    if (endInput) endInput.value = reportCustomPeriod.end;
+    return;
+  }
+  if (selWrap) selWrap.style.display = 'flex';
+  if (customWrap) customWrap.style.display = 'none';
+  reportPeriodOptions = buildPeriodOptions(reportPeriodMode);
+  const sel = document.getElementById('report-period-selector');
+  if (!sel) return;
+  sel.innerHTML = reportPeriodOptions.map(o => `<option value="${o.key}">${o.label}</option>`).join('');
+  const saved = reportSelectedPeriodKeys[reportPeriodMode];
+  if (saved && reportPeriodOptions.some(o => o.key === saved)) {
+    sel.value = saved;
+  }
+}
+
+function stepReportPeriod(direction) {
+  const sel = document.getElementById('report-period-selector');
+  if (!sel) return;
+  const newIndex = sel.selectedIndex - direction;
+  if (newIndex >= 0 && newIndex < sel.options.length) {
+    sel.selectedIndex = newIndex;
+    reportSelectedPeriodKeys[reportPeriodMode] = sel.value;
+    loadReports();
+  }
 }
 
 function populateReportFilterOptions() {
@@ -2538,10 +2634,10 @@ function setReportMetricValue(id, value) {
 
 function renderReportsLoading(message = 'Loading…') {
   setReportMetricValue('mc-rpt-gbp', '—');
+  setReportMetricValue('mc-rpt-gbp-only', '—');
   setReportMetricValue('mc-rpt-hkd', '—');
   setReportMetricValue('mc-rpt-count', '—');
   document.getElementById('cat-table-body').innerHTML = `<tr><td colspan="3" style="text-align:center;color:#8492a6;padding:12px">${message}</td></tr>`;
-  document.getElementById('liv-table-body').innerHTML = `<tr><td colspan="3" style="text-align:center;color:#8492a6;padding:12px">${message}</td></tr>`;
   document.getElementById('largest-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:#8492a6;padding:12px">${message}</td></tr>`;
   document.getElementById('trend-hint').textContent = message;
 }
@@ -2560,30 +2656,52 @@ function renderReportCategoryTable(bodyId, rows, currency) {
   }
 
   const key = currency === 'HKD' ? 'amount_hkd' : 'amount_gbp';
-  const total = rows.reduce((sum, row) => sum + (parseFloat(row[key]) || 0), 0);
-  tbody.innerHTML = rows.map(row => {
+  let filtered = rows;
+  if (currency === 'HKD') {
+    filtered = rows.filter(r => parseFloat(r.amount_hkd) > 0);
+  } else if (currency === 'GBP') {
+    filtered = rows.filter(r => !r.amount_hkd || parseFloat(r.amount_hkd) <= 0);
+  }
+  const total = filtered.reduce((sum, row) => sum + (parseFloat(row[key]) || 0), 0);
+  const rowsHtml = filtered.map(row => {
     const amount = parseFloat(row[key]) || 0;
     const percentage = total > 0 ? ((amount / total) * 100).toFixed(1) : '0.0';
     const label = row.category || 'Uncategorised';
     return `<tr>
       <td>${label}</td>
-      <td>${currency === 'HKD' ? fmtAmt(amount) : fmtGBP(amount)}</td>
+      <td>${currency === 'HKD' ? 'HK$' + fmtAmt(amount) : fmtGBP(amount)}</td>
       <td>${percentage}%</td>
     </tr>`;
   }).join('');
+  const totalRow = `<tr style="font-weight:700;border-top:2px solid #d3dce6">
+    <td>Total</td>
+    <td>${currency === 'HKD' ? 'HK$' + fmtAmt(total) : fmtGBP(total)}</td>
+    <td>100%</td>
+  </tr>`;
+  tbody.innerHTML = rowsHtml + totalRow;
 }
 
 function renderCategoryChart(rows) {
-  const key = reportCurrency === 'HKD' ? 'amount_hkd' : 'amount_gbp';
-  const labels = rows.map(row => row.category || 'Uncategorised');
-  const amounts = rows.map(row => parseFloat(row[key]) || 0);
-  const colors = rows.map(row => getCatColor(row.category));
+  let filtered = rows;
+  let key = 'amount_gbp';
+  if (reportCurrency === 'HKD') {
+    key = 'amount_hkd';
+    filtered = rows.filter(r => parseFloat(r.amount_hkd) > 0);
+  } else if (reportCurrency === 'GBP') {
+    filtered = rows.filter(r => !r.amount_hkd || parseFloat(r.amount_hkd) <= 0);
+  }
+  const labels = filtered.map(row => row.category || 'Uncategorised');
+  const amounts = filtered.map(row => parseFloat(row[key]) || 0);
+  const colors = filtered.map(row => row.color || getCatColor(row.category));
   const barWrap = document.getElementById('cat-bar-wrap');
   const pieWrap = document.getElementById('cat-pie-wrap');
   const canvas = document.getElementById(reportCategoryChartType === 'pie' ? 'cat-pie' : 'hbar');
 
   barWrap.style.display = reportCategoryChartType === 'bar' ? '' : 'none';
   pieWrap.style.display = reportCategoryChartType === 'pie' ? '' : 'none';
+  if (reportCategoryChartType === 'bar' && barWrap) {
+    barWrap.style.height = Math.max(200, labels.length * 28) + 'px';
+  }
   if (reportCategoryChart) reportCategoryChart.destroy();
   if (!labels.length) return;
 
@@ -2606,7 +2724,7 @@ function renderCategoryChart(rows) {
       plugins: { legend: { display: reportCategoryChartType === 'pie', position: 'right' } },
       scales: reportCategoryChartType === 'bar'
         ? {
-            x: { grid: { color: '#f0f1f5' }, ticks: { callback: v => reportCurrency === 'HKD' ? `${Math.round(v)}` : `£${Math.round(v)}` } },
+            x: { grid: { color: '#f0f1f5' }, ticks: { callback: v => reportCurrency === 'HKD' ? `HK$${Math.round(v)}` : `£${Math.round(v)}` } },
             y: { grid: { display: false } },
           }
         : {},
@@ -2718,12 +2836,13 @@ function renderReports(data, dates) {
   currentReportsData = data;
   updatePeriodHint(dates);
   setReportMetricValue('mc-rpt-gbp', fmtGBP(data.summary.total_gbp));
-  setReportMetricValue('mc-rpt-hkd', fmtAmt(data.summary.total_hkd));
+  setReportMetricValue('mc-rpt-gbp-only', fmtGBP(data.summary.gbp_only));
+  setReportMetricValue('mc-rpt-hkd', 'HK$' + fmtAmt(data.summary.total_hkd));
+  const hkdInGbp = (parseFloat(data.summary.total_gbp) || 0) - (parseFloat(data.summary.gbp_only) || 0);
+  const hkdSub = document.querySelector('#mc-rpt-hkd')?.closest('.mc')?.querySelector('.mc-sub');
+  if (hkdSub) hkdSub.textContent = `≈ ${fmtGBP(hkdInGbp)} in GBP`;
   setReportMetricValue('mc-rpt-count', String(data.summary.transaction_count));
-  renderReportCategoryTable('cat-table-body', data.categorySpending, reportCurrency);
-  renderReportCategoryTable('liv-table-body', data.livingClassification, 'GBP');
-  renderCategoryChart(data.categorySpending);
-  renderLivingChart(data.livingClassification);
+  refreshReportBreakdown();
   renderTrendChart(data.monthlyTrend);
   renderLargestExpenses(data.largestExpenses);
 }
@@ -2737,18 +2856,22 @@ async function loadReports() {
       return;
     }
   }
-
+  if (!classificationData.length) await loadClassifications();
+  syncReportPeriodSelector();
   populateReportFilterOptions();
+  populateClassificationFilter();
   const { dates, params } = buildReportQueryParams();
   renderReportsLoading('Loading reports…');
 
   try {
-    const [summary, categorySpending, livingClassification, monthlyTrend, largestExpenses] = await Promise.all([
+    const dashParams = new URLSearchParams({ period_mode: 'Custom', start_date: dates.start, end_date: dates.end });
+    const [summary, categorySpending, livingClassification, monthlyTrend, largestExpenses, dashData] = await Promise.all([
       apiGet(`/reports/summary?${params}`),
       apiGet(`/reports/category-spending?${params}`),
       apiGet(`/reports/living-classification?${params}`),
       apiGet(`/reports/monthly-trend?${params}`),
       apiGet(`/reports/largest-expenses?${params}`),
+      apiGet(`/reports/dashboard?${dashParams}`),
     ]);
 
     renderReports({
@@ -2757,34 +2880,64 @@ async function loadReports() {
       livingClassification,
       monthlyTrend,
       largestExpenses,
+      groupCategorySpending: dashData.group_category_spending || [],
     }, dates);
   } catch (error) {
     renderReportsError(`Report load error: ${error.message}`);
   }
 }
 
+function setReportBreakdownMode(mode, button) {
+  reportBreakdownMode = mode;
+  button.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(btn => btn.classList.remove('active'));
+  button.classList.add('active');
+  const currToggle = document.getElementById('rpt-currency-toggle');
+  if (currToggle) currToggle.style.display = mode === 'classification' ? 'none' : '';
+  const colHeader = document.getElementById('rpt-breakdown-col-header');
+  if (colHeader) colHeader.textContent = mode === 'classification' ? 'Classification' : 'Category';
+  if (currentReportsData) refreshReportBreakdown();
+}
+
+function refreshReportBreakdown() {
+  if (reportBreakdownMode === 'classification') {
+    const classRows = buildClassificationRows(currentReportsData.groupCategorySpending || []);
+    renderCategoryChart(classRows);
+    renderReportCategoryTable('cat-table-body', classRows, 'TOTAL');
+  } else {
+    renderCategoryChart(currentReportsData.categorySpending);
+    renderReportCategoryTable('cat-table-body', currentReportsData.categorySpending, reportCurrency);
+  }
+}
+
+function buildClassificationRows(gcsRows) {
+  const totals = {};
+  const colors = {};
+  for (const row of gcsRows) {
+    const sg = getClassification(row.group || '', row.category || '');
+    totals[sg] = (totals[sg] || 0) + (parseFloat(row.amount_gbp) || 0);
+    if (!colors[sg]) {
+      const cg = classificationData.find(c => c.name === sg);
+      colors[sg] = cg ? cg.color : '#8492a6';
+    }
+  }
+  return classificationData
+    .filter(cg => (totals[cg.name] || 0) > 0)
+    .map(cg => ({ category: cg.name, amount_gbp: String(totals[cg.name].toFixed(2)), amount_hkd: '0', color: cg.color }))
+    .sort((a, b) => parseFloat(b.amount_gbp) - parseFloat(a.amount_gbp));
+}
+
 function switchCatType(type, button) {
   reportCategoryChartType = type;
   button.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(btn => btn.classList.remove('active'));
   button.classList.add('active');
-  if (currentReportsData) renderCategoryChart(currentReportsData.categorySpending);
+  if (currentReportsData) refreshReportBreakdown();
 }
 
 function setCurrency(currency, button) {
   reportCurrency = currency;
   button.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(btn => btn.classList.remove('active'));
   button.classList.add('active');
-  if (currentReportsData) {
-    renderReportCategoryTable('cat-table-body', currentReportsData.categorySpending, reportCurrency);
-    renderCategoryChart(currentReportsData.categorySpending);
-  }
-}
-
-function switchLivType(type, button) {
-  reportLivingChartType = type;
-  button.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(btn => btn.classList.remove('active'));
-  button.classList.add('active');
-  if (currentReportsData) renderLivingChart(currentReportsData.livingClassification);
+  if (currentReportsData) refreshReportBreakdown();
 }
 
 function switchTrend(type, button) {
@@ -2794,7 +2947,488 @@ function switchTrend(type, button) {
   if (currentReportsData) renderTrendChart(currentReportsData.monthlyTrend);
 }
 
-// Initialize
+// ── Settings page ──
+
+async function loadSettingsPage() {
+  if (!expenseMetadata) {
+    try { expenseMetadata = await apiGet('/expenses/meta'); } catch (e) {}
+  }
+  await loadCategoryCatalog();
+  await loadClassifications();
+  await loadIncomeClassifications();
+  renderSettingsCategoryManager();
+  renderClassificationManagerBody();
+  renderIncomeClassificationSettings();
+}
+
+function renderSettingsCategoryManager() {
+  const body = document.getElementById('settings-cat-body');
+  if (!body) return;
+
+  const groups = getAllKnownGroups();
+  let html = '';
+
+  for (const group of groups) {
+    const { all: entries } = getCategoryEntriesForGroup(group);
+    html += `<div class="catmgr-group">`;
+    html += `<div class="catmgr-group-header">
+      <div class="catmgr-group-name">${group}</div>
+      ${categoryManagerAvailable ? `<button class="catmgr-add-btn" type="button" onclick="addSettingsCategoryRow('${group.replace(/'/g, "\\'")}')">+ Add tag</button>` : ''}
+    </div>`;
+
+    if (!entries.length) {
+      html += `<div class="catmgr-empty">No categories yet.</div>`;
+    } else {
+      for (const entry of entries) {
+        const esc = entry.category.replace(/"/g, '&quot;');
+        const escSq = entry.category.replace(/'/g, "\\'");
+        html += `<div class="catmgr-row" data-id="${entry.id}" data-original="${esc}">
+          <input type="text" value="${esc}" id="settings-catname-${entry.id}" ${categoryManagerAvailable ? '' : 'readonly'}>
+          <div class="catmgr-row-preview">${categoryChip(entry.category, entry.group_name)}</div>
+          <div class="catmgr-row-count">${entry.usage_count || 0} used</div>
+          ${categoryManagerAvailable ? `<div class="catmgr-row-actions">
+            <button class="catmgr-row-btn save" type="button" title="Save rename" onclick="renameSettingsCategory(${entry.id})"><i class="ti ti-check"></i></button>
+            <button class="catmgr-row-btn danger" type="button" title="Delete" onclick="deleteSettingsCategory(${entry.id}, '${escSq}')"><i class="ti ti-trash"></i></button>
+          </div>` : ''}
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+
+  if (!categoryManagerAvailable) {
+    html += `<div style="margin-top:14px;padding:10px 14px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:12px;color:#3730a3">
+      Editing is unavailable until the category catalog migration is applied in Supabase.
+    </div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function addSettingsCategoryRow(groupName) {
+  const groupEl = [...document.getElementById('settings-cat-body').querySelectorAll('.catmgr-group')].find(el =>
+    el.querySelector('.catmgr-group-name')?.textContent === groupName
+  );
+  if (!groupEl) return;
+  const emptyMsg = groupEl.querySelector('.catmgr-empty');
+  if (emptyMsg) emptyMsg.remove();
+
+  const row = document.createElement('div');
+  row.className = 'catmgr-row new-row';
+  row.innerHTML = `
+    <input type="text" placeholder="New category name…" autofocus>
+    <div class="catmgr-row-actions">
+      <button class="catmgr-row-btn save" type="button" onclick="saveSettingsNewCategory('${groupName.replace(/'/g, "\\'")}', this)"><i class="ti ti-check"></i></button>
+      <button class="catmgr-row-btn danger" type="button" onclick="this.closest('.catmgr-row').remove()"><i class="ti ti-x"></i></button>
+    </div>`;
+  groupEl.appendChild(row);
+  const input = row.querySelector('input');
+  input.focus();
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveSettingsNewCategory(groupName, row.querySelector('.save'));
+    if (e.key === 'Escape') row.remove();
+  });
+}
+
+async function saveSettingsNewCategory(groupName, btnEl) {
+  const row = btnEl.closest('.catmgr-row');
+  const input = row.querySelector('input');
+  const category = normalizeText(input.value);
+  if (!category) { input.focus(); return; }
+  try {
+    await apiPost('/categories', { group_name: groupName, category });
+    await loadCategoryCatalog(true);
+    populateExpenseCategoryOptions(false);
+    renderSettingsCategoryManager();
+  } catch (error) {
+    setClfStatus(`Could not add: ${error.message}`, 'error');
+  }
+}
+
+async function renameSettingsCategory(categoryId) {
+  const input = document.getElementById(`settings-catname-${categoryId}`);
+  const row = input?.closest('.catmgr-row');
+  if (!input || !row) return;
+  const newName = normalizeText(input.value);
+  const original = row.dataset.original;
+  if (!newName || newName === original) return;
+  try {
+    await apiPut(`/categories/${categoryId}`, { category: newName });
+    await loadCategoryCatalog(true);
+    populateExpenseCategoryOptions(false);
+    renderSettingsCategoryManager();
+  } catch (error) {
+    setClfStatus(`Could not rename: ${error.message}`, 'error');
+  }
+}
+
+async function deleteSettingsCategory(categoryId, categoryName) {
+  if (!window.confirm(`Delete "${categoryName}"? Existing expenses keep their saved category text.`)) return;
+  try {
+    await apiDelete(`/categories/${categoryId}`);
+    await loadCategoryCatalog(true);
+    populateExpenseCategoryOptions(false);
+    renderSettingsCategoryManager();
+  } catch (error) {
+    setClfStatus(`Could not delete: ${error.message}`, 'error');
+  }
+}
+
+// ── Classification manager ──
+
+function populateClassificationFilter() {
+  const sel = document.getElementById('report-classification-filter');
+  if (!sel) return;
+  const current = sel.value || 'All classifications';
+  const options = ['All classifications', ...classificationData.map(g => g.name)];
+  sel.innerHTML = options.map(o => `<option>${o}</option>`).join('');
+  sel.value = options.includes(current) ? current : 'All classifications';
+}
+
+function openClassificationManager() {
+  const overlay = document.getElementById('clf-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  renderClassificationManagerBody();
+}
+
+function closeClassificationManager() {
+  const overlay = document.getElementById('clf-overlay');
+  if (overlay) overlay.classList.remove('open');
+  setClfStatus();
+}
+
+function setClfStatus(msg = '', type = '') {
+  for (const id of ['clf-status', 'settings-clf-status']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = msg;
+    el.className = type ? `form-status ${type}` : 'form-status';
+  }
+}
+
+function renderClassificationManagerBody() {
+  const settingsBody = document.getElementById('settings-clf-body');
+  if (settingsBody) _renderClassificationInto(settingsBody, 's');
+  const modalBody = document.getElementById('clf-body');
+  if (modalBody) _renderClassificationInto(modalBody, 'm');
+}
+
+function _renderClassificationInto(body, prefix) {
+
+  const allGroups = getAllKnownGroups();
+  const allCategories = [...new Set(categoryCatalog.map(e => e.category).filter(Boolean))].sort();
+
+  const p = prefix;
+  let html = '';
+  for (const cg of classificationData) {
+    html += `<div class="catmgr-group" data-clf-id="${cg.id}">`;
+    html += `<div class="catmgr-group-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="color" value="${cg.color}" style="width:24px;height:24px;border:none;padding:0;cursor:pointer"
+               onchange="updateClassificationColor(${cg.id}, this.value)">
+        <input type="text" value="${cg.name}" style="font-size:12px;font-weight:700;border:1px solid #d8dce8;border-radius:5px;padding:4px 8px;width:160px"
+               id="clf-name-${p}-${cg.id}" onblur="renameClassification(${cg.id}, '${p}')">
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="catmgr-add-btn" onclick="showAddMappingRow(${cg.id}, '${p}')">+ Add mapping</button>
+        <button class="catmgr-row-btn danger" title="Delete classification" onclick="deleteClassificationGroup(${cg.id})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+
+    if (!cg.mappings.length) {
+      html += `<div class="catmgr-empty">No mappings yet — unclassified expenses will fall here if set as default.</div>`;
+    } else {
+      html += `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0">`;
+      for (const m of cg.mappings) {
+        const label = m.expense_category
+          ? `${m.expense_group} → ${m.expense_category}`
+          : `${m.expense_group} (all)`;
+        html += `<span class="chip" style="background:${cg.color}15;color:${cg.color};border-color:${cg.color}40;font-size:11px;gap:4px">
+          ${label}
+          <button style="background:none;border:none;cursor:pointer;color:inherit;font-size:13px;padding:0;line-height:1"
+                  onclick="removeClassificationMapping(${m.id})">&times;</button>
+        </span>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `<div id="clf-add-row-${p}-${cg.id}" style="display:none;padding:6px 0">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select id="clf-add-group-${p}-${cg.id}" style="padding:5px 8px;border:1px solid #d8dce8;border-radius:5px;font-size:12px"
+                onchange="onClfGroupChange(${cg.id}, '${p}')">
+          ${allGroups.map(g => `<option>${g}</option>`).join('')}
+        </select>
+        <select id="clf-add-cat-${p}-${cg.id}" style="padding:5px 8px;border:1px solid #d8dce8;border-radius:5px;font-size:12px">
+          <option value="">(entire group)</option>
+        </select>
+        <button class="catmgr-row-btn save" onclick="saveClassificationMapping(${cg.id}, '${p}')"><i class="ti ti-check"></i></button>
+        <button class="catmgr-row-btn danger" onclick="document.getElementById('clf-add-row-${p}-${cg.id}').style.display='none'"><i class="ti ti-x"></i></button>
+      </div>
+    </div>`;
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function showAddMappingRow(clfId, p) {
+  const row = document.getElementById(`clf-add-row-${p}-${clfId}`);
+  if (row) {
+    row.style.display = '';
+    onClfGroupChange(clfId, p);
+  }
+}
+
+function onClfGroupChange(clfId, p) {
+  const groupSel = document.getElementById(`clf-add-group-${p}-${clfId}`);
+  const catSel = document.getElementById(`clf-add-cat-${p}-${clfId}`);
+  if (!groupSel || !catSel) return;
+  const group = groupSel.value;
+  const entries = categoryCatalog.filter(e => normalizeText(e.group_name) === normalizeText(group));
+  catSel.innerHTML = `<option value="">(entire group)</option>` +
+    entries.map(e => `<option>${e.category}</option>`).join('');
+}
+
+async function saveClassificationMapping(clfId, p) {
+  const group = document.getElementById(`clf-add-group-${p}-${clfId}`)?.value;
+  const cat = document.getElementById(`clf-add-cat-${p}-${clfId}`)?.value || null;
+  if (!group) return;
+  try {
+    await apiPost(`/classifications/${clfId}/mappings`, { expense_group: group, expense_category: cat });
+    await loadClassifications();
+    renderClassificationManagerBody();
+    populateClassificationFilter();
+    setClfStatus('Mapping added.', 'success');
+  } catch (error) {
+    setClfStatus(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function removeClassificationMapping(mappingId) {
+  try {
+    await apiDelete(`/classifications/mappings/${mappingId}`);
+    await loadClassifications();
+    renderClassificationManagerBody();
+    populateClassificationFilter();
+    setClfStatus('Mapping removed.', 'success');
+  } catch (error) {
+    setClfStatus(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function renameClassification(clfId, p) {
+  const input = document.getElementById(`clf-name-${p}-${clfId}`);
+  if (!input) return;
+  const cg = classificationData.find(g => g.id === clfId);
+  if (!cg || input.value.trim() === cg.name) return;
+  try {
+    await apiPut(`/classifications/${clfId}`, { name: input.value.trim(), color: cg.color, sort_order: cg.sort_order });
+    await loadClassifications();
+    populateClassificationFilter();
+    setClfStatus('Renamed.', 'success');
+  } catch (error) {
+    setClfStatus(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function updateClassificationColor(clfId, color) {
+  const cg = classificationData.find(g => g.id === clfId);
+  if (!cg) return;
+  try {
+    await apiPut(`/classifications/${clfId}`, { name: cg.name, color, sort_order: cg.sort_order });
+    await loadClassifications();
+    renderClassificationManagerBody();
+    setClfStatus('Color updated.', 'success');
+  } catch (error) {
+    setClfStatus(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function addClassificationGroup() {
+  const name = prompt('New classification name:');
+  if (!name || !name.trim()) return;
+  const nextOrder = classificationData.length ? Math.max(...classificationData.map(g => g.sort_order)) + 1 : 1;
+  try {
+    await apiPost('/classifications', { name: name.trim(), color: '#8492a6', sort_order: nextOrder });
+    await loadClassifications();
+    renderClassificationManagerBody();
+    populateClassificationFilter();
+    setClfStatus(`Added "${name.trim()}".`, 'success');
+  } catch (error) {
+    setClfStatus(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function deleteClassificationGroup(clfId) {
+  const cg = classificationData.find(g => g.id === clfId);
+  if (!cg) return;
+  if (!window.confirm(`Delete "${cg.name}" and all its mappings?`)) return;
+  try {
+    await apiDelete(`/classifications/${clfId}`);
+    await loadClassifications();
+    renderClassificationManagerBody();
+    populateClassificationFilter();
+    setClfStatus(`Deleted "${cg.name}".`, 'success');
+  } catch (error) {
+    setClfStatus(`Error: ${error.message}`, 'error');
+  }
+}
+
+// ── Income classification settings ──
+
+function setIncClfStatus(msg = '', type = '') {
+  const el = document.getElementById('settings-income-clf-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = type ? `form-status ${type}` : 'form-status';
+}
+
+function renderIncomeClassificationSettings() {
+  const body = document.getElementById('settings-income-clf-body');
+  if (!body || !incomeClassificationData) return;
+
+  const groups = incomeClassificationData.groups || [];
+  const unassigned = incomeClassificationData.unassigned_sources || [];
+  let html = '';
+
+  for (const grp of groups) {
+    html += `<div class="catmgr-group">`;
+    html += `<div class="catmgr-group-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="color" value="${grp.color}" style="width:24px;height:24px;border:none;padding:0;cursor:pointer"
+               onchange="updateIncomeGroupColor(${grp.id}, this.value)">
+        <input type="text" value="${grp.name}" style="font-size:12px;font-weight:700;border:1px solid #d8dce8;border-radius:5px;padding:4px 8px;width:160px"
+               id="inc-clf-name-${grp.id}" onblur="renameIncomeGroup(${grp.id})">
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="catmgr-row-btn danger" title="Delete group" onclick="deleteIncomeGroup(${grp.id})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+
+    if (!grp.sources.length) {
+      html += `<div class="catmgr-empty">No sources assigned.</div>`;
+    } else {
+      for (const src of grp.sources) {
+        html += `<div class="catmgr-row">
+          <input type="color" value="${src.color}" style="width:20px;height:20px;border:none;padding:0;cursor:pointer"
+                 onchange="updateIncomeSourceColor(${src.id}, '${src.source_name.replace(/'/g, "\\'")}', this.value, ${grp.id})">
+          <span style="flex:1;font-size:12.5px">${src.source_name}</span>
+          <div class="catmgr-row-actions">
+            <button class="catmgr-row-btn danger" title="Unassign" onclick="unassignIncomeSource(${src.id}, '${src.source_name.replace(/'/g, "\\'")}', '${src.color}')"><i class="ti ti-x"></i></button>
+          </div>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+
+  if (unassigned.length) {
+    html += `<div class="catmgr-group">`;
+    html += `<div class="catmgr-group-header"><div class="catmgr-group-name" style="color:#8492a6">Unassigned sources</div></div>`;
+    for (const src of unassigned) {
+      html += `<div class="catmgr-row">
+        <input type="color" value="${src.color}" style="width:20px;height:20px;border:none;padding:0;cursor:pointer"
+               onchange="updateIncomeSourceColor(${src.id}, '${src.source_name.replace(/'/g, "\\'")}', this.value, null)">
+        <span style="flex:1;font-size:12.5px">${src.source_name}</span>
+        <select style="padding:4px 8px;border:1px solid #d8dce8;border-radius:5px;font-size:11px"
+                onchange="assignIncomeSource(${src.id}, '${src.source_name.replace(/'/g, "\\'")}', '${src.color}', this.value)">
+          <option value="">— Assign to group</option>
+          ${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}
+        </select>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+async function updateIncomeGroupColor(groupId, color) {
+  const grp = incomeClassificationData?.groups?.find(g => g.id === groupId);
+  if (!grp) return;
+  try {
+    await apiPut(`/income-classifications/groups/${groupId}`, { name: grp.name, color, sort_order: grp.sort_order });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus('Color updated.', 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function renameIncomeGroup(groupId) {
+  const input = document.getElementById(`inc-clf-name-${groupId}`);
+  const grp = incomeClassificationData?.groups?.find(g => g.id === groupId);
+  if (!input || !grp || input.value.trim() === grp.name) return;
+  try {
+    await apiPut(`/income-classifications/groups/${groupId}`, { name: input.value.trim(), color: grp.color, sort_order: grp.sort_order });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus('Renamed.', 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function deleteIncomeGroup(groupId) {
+  const grp = incomeClassificationData?.groups?.find(g => g.id === groupId);
+  if (!grp || !window.confirm(`Delete "${grp.name}"? Sources will become unassigned.`)) return;
+  try {
+    await apiDelete(`/income-classifications/groups/${groupId}`);
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus(`Deleted "${grp.name}".`, 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function updateIncomeSourceColor(configId, sourceName, color, groupId) {
+  try {
+    await apiPost('/income-classifications/sources', { source_name: sourceName, color, classification_group_id: groupId });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function assignIncomeSource(configId, sourceName, color, groupId) {
+  if (!groupId) return;
+  try {
+    await apiPost('/income-classifications/sources', { source_name: sourceName, color, classification_group_id: parseInt(groupId) });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus(`Assigned "${sourceName}".`, 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function unassignIncomeSource(configId, sourceName, color) {
+  try {
+    await apiPost('/income-classifications/sources', { source_name: sourceName, color, classification_group_id: null });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus(`Unassigned "${sourceName}".`, 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function addIncomeClassificationGroup() {
+  const name = prompt('New income classification group name:');
+  if (!name?.trim()) return;
+  const groups = incomeClassificationData?.groups || [];
+  const nextOrder = groups.length ? Math.max(...groups.map(g => g.sort_order)) + 1 : 1;
+  try {
+    await apiPost('/income-classifications/groups', { name: name.trim(), color: '#8492a6', sort_order: nextOrder });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus(`Added "${name.trim()}".`, 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
+async function addIncomeSourceConfig() {
+  const name = prompt('Income source name:');
+  if (!name?.trim()) return;
+  try {
+    await apiPost('/income-classifications/sources', { source_name: name.trim(), color: '#8492a6' });
+    await loadIncomeClassifications();
+    renderIncomeClassificationSettings();
+    setIncClfStatus(`Added "${name.trim()}".`, 'success');
+  } catch (e) { setIncClfStatus(`Error: ${e.message}`, 'error'); }
+}
+
 // ── Recurring page ──
 
 const CATEGORY_ICONS = {
@@ -2829,7 +3463,7 @@ let editingRecIncomeId = null;
 async function loadRecurringPage() {
   try {
     if (!expenseMetadata) {
-      try { expenseMetadata = await apiGet('/expenses/meta'); } catch {}
+      try { expenseMetadata = await apiGet('/expenses/meta'); } catch (e) {}
     }
     await loadCategoryCatalog();
     const [expenses, incomes] = await Promise.all([
@@ -3128,9 +3762,342 @@ async function toggleRecIncome(id, newState) {
   }
 }
 
+// ── MONTHLY OVERVIEW ──
+
+function setMonthlyOverviewYearType(type, btn) {
+  moYearType = type;
+  btn.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  populateMonthlyOverviewYearSelector();
+  loadMonthlyOverview();
+}
+
+function setMoExpFilter(filter, btn) {
+  moExpFilter = filter;
+  btn.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (_lastMoData) {
+    destroyMonthlyOverviewCharts();
+    renderMonthlyOverviewLegend('mo-expense-legend', 'expense');
+    renderMonthlyOverviewSection(_lastMoData.months, 'mo-expense-grid', 'expense');
+    renderMonthlyOverviewSection(_lastMoData.months, 'mo-income-grid', 'income');
+    renderMonthlyOverviewTrend(_lastMoData.months);
+  }
+}
+
+function setMonthlyOverviewBasis(basis, btn) {
+  moBasis = basis;
+  btn.closest('.seg-control')?.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (_lastMoData) renderMonthlyOverviewFromCache();
+}
+
+function renderMonthlyOverviewFromCache() {
+  destroyMonthlyOverviewCharts();
+  renderMonthlyOverviewTrend(_lastMoData.months);
+  renderMonthlyOverviewLegend('mo-expense-legend', 'expense');
+  renderMonthlyOverviewLegend('mo-income-legend', 'income');
+  renderMonthlyOverviewSection(_lastMoData.months, 'mo-expense-grid', 'expense');
+  renderMonthlyOverviewSection(_lastMoData.months, 'mo-income-grid', 'income');
+}
+
+function stepMonthlyOverviewYear(direction) {
+  const sel = document.getElementById('mo-year-selector');
+  if (!sel) return;
+  const newIndex = sel.selectedIndex - direction;
+  if (newIndex >= 0 && newIndex < sel.options.length) {
+    sel.selectedIndex = newIndex;
+    loadMonthlyOverview();
+  }
+}
+
+function populateMonthlyOverviewYearSelector() {
+  const sel = document.getElementById('mo-year-selector');
+  if (!sel) return;
+  const today = todayDate();
+  const options = [];
+  if (moYearType === 'financial') {
+    const fyStartYear = today.getMonth() < 3 || (today.getMonth() === 3 && today.getDate() < 6)
+      ? today.getFullYear() - 1 : today.getFullYear();
+    for (let y = fyStartYear; y >= 2021; y--) {
+      options.push({ value: y, label: `${y}/${String(y + 1).slice(-2)}` });
+    }
+  } else {
+    for (let y = today.getFullYear(); y >= 2021; y--) {
+      options.push({ value: y, label: String(y) });
+    }
+  }
+  const prev = sel.value;
+  sel.innerHTML = options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  if (prev && options.some(o => String(o.value) === prev)) sel.value = prev;
+}
+
+function destroyMonthlyOverviewCharts() {
+  moCharts.forEach(c => { try { c.destroy(); } catch (e) {} });
+  moCharts = [];
+  if (moTrendChart) { try { moTrendChart.destroy(); } catch (e) {} moTrendChart = null; }
+}
+
+async function loadMonthlyOverview() {
+  if (!classificationData.length) await loadClassifications();
+  if (!incomeClassificationData) await loadIncomeClassifications();
+  populateMonthlyOverviewYearSelector();
+  const year = document.getElementById('mo-year-selector')?.value;
+  if (!year) return;
+  document.getElementById('mo-expense-grid').innerHTML = '<div style="font-size:12px;color:#8492a6">Loading...</div>';
+  document.getElementById('mo-income-grid').innerHTML = '<div style="font-size:12px;color:#8492a6">Loading...</div>';
+  destroyMonthlyOverviewCharts();
+  try {
+    const data = await apiGet(`/reports/monthly-overview?year_type=${moYearType}&year=${year}`);
+    _lastMoData = data;
+    renderMonthlyOverviewFromCache();
+  } catch (e) {
+    document.getElementById('mo-expense-grid').innerHTML = `<div style="font-size:12px;color:#c0392b">Error: ${e.message}</div>`;
+    document.getElementById('mo-income-grid').innerHTML = '';
+  }
+}
+
+function renderMonthlyOverviewLegend(legendId, type) {
+  const el = document.getElementById(legendId);
+  if (!el) return;
+  let items = [];
+  if (type === 'expense') {
+    if (moExpFilter === 'with-liability') {
+      const taxColor = classificationData.find(c => c.name === 'Tax')?.color || '#C47A7A';
+      items = classificationData
+        .filter(cg => cg.name !== 'Tax')
+        .map(cg => ({ label: cg.name, color: cg.color }));
+      items.push({ label: 'Tax Liability', color: taxColor });
+    } else {
+      items = classificationData
+        .filter(cg => {
+          if (moExpFilter === 'ex-tax') return cg.name !== 'Tax';
+          return true;
+        })
+        .map(cg => ({ label: cg.name, color: cg.color }));
+    }
+  } else if (incomeClassificationData) {
+    items = incomeClassificationData.groups.map(g => ({ label: g.name, color: g.color }));
+  }
+  el.innerHTML = items.map(it =>
+    `<span class="mo-legend-item"><span class="mo-legend-dot" style="background:${it.color}"></span>${it.label}</span>`
+  ).join('');
+}
+
+function renderMonthlyOverviewTrend(months) {
+  const canvas = document.getElementById('mo-trend-chart');
+  if (!canvas) return;
+  if (moTrendChart) { try { moTrendChart.destroy(); } catch (e) {} moTrendChart = null; }
+
+  const activeMonths = months.filter(m =>
+    (m.group_category_spending && m.group_category_spending.length > 0) ||
+    (m.income_source_spending && m.income_source_spending.length > 0)
+  );
+  if (!activeMonths.length) { canvas.parentElement.innerHTML = '<div style="font-size:12px;color:#8492a6;padding:20px;text-align:center">No data</div>'; return; }
+  const labels = activeMonths.map(m => m.label);
+  const expKey = moBasis === 'used' ? 'expense_used_gbp' : 'expense_paid_gbp';
+  const savKey = moBasis === 'used' ? 'saving_used_gbp' : 'saving_paid_gbp';
+
+  const datasets = [
+    {
+      label: 'Gross Income',
+      data: activeMonths.map(m => parseFloat(m.metrics.gross_income_gbp) || 0),
+      borderColor: '#27ae60',
+      backgroundColor: '#27ae6020',
+      tension: 0.3,
+      pointRadius: 3,
+    },
+    {
+      label: 'Tax Liability',
+      data: activeMonths.map(m => parseFloat(m.metrics.tax_liability_gbp) || 0),
+      borderColor: '#c0392b',
+      backgroundColor: '#c0392b20',
+      tension: 0.3,
+      pointRadius: 3,
+    },
+    {
+      label: 'Expenses',
+      data: activeMonths.map(m => parseFloat(m.metrics[expKey]) || 0),
+      borderColor: '#5B7DB1',
+      backgroundColor: '#5B7DB120',
+      tension: 0.3,
+      pointRadius: 3,
+    },
+    {
+      label: 'Saving',
+      data: activeMonths.map(m => parseFloat(m.metrics[savKey]) || 0),
+      borderColor: '#8e44ad',
+      backgroundColor: '#8e44ad20',
+      tension: 0.3,
+      pointRadius: 3,
+    },
+  ];
+
+  moTrendChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${fmtGBP(ctx.raw)}`,
+          },
+        },
+      },
+      scales: {
+        y: {
+          ticks: { callback: (v) => '£' + v.toLocaleString() },
+          grid: { color: '#e8ecf1' },
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 10 } },
+        },
+      },
+    },
+  });
+}
+
+function renderMonthlyOverviewSection(months, gridId, type) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const prefix = type === 'expense' ? 'mo-exp' : 'mo-inc';
+  let html = '';
+  months.forEach((month, i) => {
+    html += `<div class="mo-chart-cell">
+      <div class="mo-chart-label">${month.label}</div>
+      <div class="mo-chart-canvas-wrap" id="${prefix}-wrap-${i}">
+        <canvas id="${prefix}-chart-${i}"></canvas>
+      </div>
+      <div class="mo-chart-total" id="${prefix}-total-${i}"></div>
+    </div>`;
+  });
+  grid.innerHTML = html;
+  requestAnimationFrame(() => {
+    months.forEach((month, i) => {
+      const rows = type === 'expense'
+        ? (moBasis === 'used' ? (month.group_category_spending_used || month.group_category_spending || []) : (month.group_category_spending || []))
+        : (month.income_source_spending || []);
+      renderMonthlyOverviewDoughnut(`${prefix}-chart-${i}`, `${prefix}-total-${i}`, `${prefix}-wrap-${i}`, rows, type, month.metrics);
+    });
+  });
+}
+
+function renderMonthlyOverviewDoughnut(canvasId, totalId, wrapId, rows, type, metrics) {
+  const canvas = document.getElementById(canvasId);
+  const totalEl = document.getElementById(totalId);
+  const wrapEl = document.getElementById(wrapId);
+  if (!canvas) return;
+
+  let chartRows;
+  if (type === 'expense') {
+    const totals = {};
+    for (const row of rows) {
+      const sg = getClassification(row.group || '', row.category || '');
+      if (moExpFilter === 'with-liability' && sg === 'Tax') continue;
+      if (moExpFilter === 'ex-tax' && sg === 'Tax') continue;
+      totals[sg] = (totals[sg] || 0) + (parseFloat(row.amount_gbp) || 0);
+    }
+    if (moExpFilter === 'with-liability' && metrics) {
+      const taxLiability = parseFloat(metrics.tax_liability_gbp) || 0;
+      if (taxLiability > 0) totals['Tax Liability'] = taxLiability;
+    }
+    const taxColor = classificationData.find(c => c.name === 'Tax')?.color || '#C47A7A';
+    chartRows = (moExpFilter === 'with-liability'
+      ? Object.entries(totals).map(([name, amt]) => ({
+          label: name,
+          amount: amt,
+          color: name === 'Tax Liability' ? taxColor : (classificationData.find(c => c.name === name)?.color || '#8492a6'),
+        }))
+      : classificationData
+          .filter(cg => (totals[cg.name] || 0) > 0)
+          .map(cg => ({ label: cg.name, amount: totals[cg.name], color: cg.color }))
+    ).sort((a, b) => b.amount - a.amount);
+  } else {
+    const totals = {};
+    const colors = {};
+    for (const row of rows) {
+      const cls = getIncomeClassificationForSource(row.source);
+      const groupName = cls || 'Other';
+      totals[groupName] = (totals[groupName] || 0) + (parseFloat(row.amount_gbp) || 0);
+      if (!colors[groupName] && incomeClassificationData) {
+        const grp = incomeClassificationData.groups.find(g => g.name === groupName);
+        colors[groupName] = grp ? grp.color : '#8492a6';
+      }
+    }
+    chartRows = Object.entries(totals)
+      .filter(([, amt]) => amt > 0)
+      .map(([label, amount]) => ({ label, amount, color: colors[label] || '#8492a6' }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  const total = chartRows.reduce((s, r) => s + r.amount, 0);
+  if (totalEl) totalEl.textContent = '';
+
+  if (!chartRows.length || total <= 0) {
+    if (wrapEl) wrapEl.innerHTML = '<div class="mo-no-data">No data</div>';
+    return;
+  }
+
+  const centerTextPlugin = {
+    id: 'moCenterText',
+    afterDraw(chart) {
+      const { ctx, chartArea: { top, bottom, left, right } } = chart;
+      const cx = (left + right) / 2;
+      const cy = (top + bottom) / 2;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1a1f2e';
+      ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(fmtGBP(total), cx, cy);
+      ctx.restore();
+    },
+  };
+
+  const chart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: chartRows.map(r => r.label),
+      datasets: [{
+        data: chartRows.map(r => r.amount),
+        backgroundColor: chartRows.map(r => r.color),
+        borderColor: '#fff',
+        borderWidth: 1.5,
+        hoverOffset: 3,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const value = parseFloat(ctx.raw) || 0;
+              const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+              return `${ctx.label}: ${fmtGBP(value)} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+    plugins: [centerTextPlugin],
+  });
+  moCharts.push(chart);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('period-selector').addEventListener('change', event => {
     selectedPeriodKeys[currentPeriodMode] = event.target.value;
+    updatePeriodNavButtons();
     loadPageData(currentPage);
   });
 
@@ -3286,7 +4253,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadTaxDue();
   });
 
-  document.getElementById('report-period-filter').addEventListener('change', () => {
+  document.getElementById('report-period-selector').addEventListener('change', (e) => {
+    reportSelectedPeriodKeys[reportPeriodMode] = e.target.value;
+    loadReports();
+  });
+
+  document.getElementById('report-custom-start')?.addEventListener('change', () => {
+    reportCustomPeriod.start = document.getElementById('report-custom-start').value || toISODate(TRACKING_START_DATE);
+    loadReports();
+  });
+
+  document.getElementById('report-custom-end')?.addEventListener('change', () => {
+    reportCustomPeriod.end = document.getElementById('report-custom-end').value || toISODate(todayDate());
     loadReports();
   });
 
@@ -3296,6 +4274,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('report-cat-filter').addEventListener('change', () => {
     loadReports();
+  });
+
+  document.getElementById('report-classification-filter')?.addEventListener('change', () => {
+    loadReports();
+  });
+
+  document.getElementById('clf-overlay')?.addEventListener('mousedown', e => {
+    if (e.target === e.currentTarget) closeClassificationManager();
   });
 
   document.getElementById('finance-history-start').addEventListener('change', () => {
@@ -3311,6 +4297,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('finance-history-account-filter').addEventListener('change', () => {
     loadFinanceHistory();
+  });
+
+  document.getElementById('mo-year-selector')?.addEventListener('change', () => {
+    loadMonthlyOverview();
   });
 
   clearExpenseForm();

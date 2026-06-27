@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Expense Tracker</title>
-<link rel="stylesheet" href="/css/app.css?v=20260626-31">
+<link rel="stylesheet" href="/css/app.css?v=20260627-55">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -23,15 +23,17 @@
   <div class="nav" onclick="nav('income',this)"><i class="ti ti-arrow-up-circle"></i>Income</div>
   <div class="nav" onclick="nav('tax',this)"><i class="ti ti-receipt-tax"></i>Tax</div>
   <div class="sb-section">Finance</div>
-  <div class="nav" onclick="nav('finance',this)"><i class="ti ti-building-bank"></i>Finance snapshot</div>
+  <div class="nav" onclick="nav('finance',this)"><i class="ti ti-building-bank"></i>Finance Snapshot</div>
   <div class="nav" onclick="nav('recurring',this)"><i class="ti ti-repeat"></i>Recurring</div>
   <div class="sb-section">Insights</div>
   <div class="nav" onclick="nav('reports',this)"><i class="ti ti-chart-pie"></i>Reports</div>
+  <div class="nav" onclick="nav('monthly-overview',this)"><i class="ti ti-calendar-stats"></i>Monthly Overview</div>
   <div class="sb-section">Data</div>
   <div class="nav" onclick="nav('import',this)"><i class="ti ti-upload"></i>Import</div>
   <div class="nav" onclick="nav('export',this)"><i class="ti ti-download"></i>Export</div>
   <div class="sb-spacer"></div>
-  <div class="sb-bottom"><i class="ti ti-settings"></i>Settings</div>
+  <div class="nav" onclick="nav('data-notes',this)"><i class="ti ti-info-circle"></i>Data Caveats</div>
+  <div class="nav" onclick="nav('settings',this)"><i class="ti ti-settings"></i>Settings</div>
 </div>
 
 <!-- MAIN -->
@@ -46,7 +48,9 @@
           <div class="pill" onclick="setPeriod(this,'Custom')">Custom</div>
         </div>
         <div class="period-selector-wrap" id="period-selector-wrap">
+          <button class="period-nav-btn" id="period-prev" onclick="stepPeriod(-1)" title="Previous"><i class="ti ti-chevron-left"></i></button>
           <select id="period-selector" class="period-selector" aria-label="Select dashboard period"></select>
+          <button class="period-nav-btn" id="period-next" onclick="stepPeriod(1)" title="Next"><i class="ti ti-chevron-right"></i></button>
         </div>
         <div class="custom-period-wrap" id="custom-period-wrap">
           <input type="date" id="custom-start-date" class="custom-date-input" aria-label="Custom start date">
@@ -55,6 +59,10 @@
         </div>
       </div>
     <div class="topbar-right">
+      <div class="seg-control" id="topbar-basis-toggle" style="display:flex">
+        <button class="seg-btn active" onclick="setDashboardBasis('paid', this)">Paid</button>
+        <button class="seg-btn" onclick="setDashboardBasis('used', this)">Used</button>
+      </div>
       <span class="period-hint" id="period-hint"></span>
       <button class="btn-primary" id="top-btn" style="display:flex"><i class="ti ti-plus"></i><span id="top-btn-label">Add expense</span></button>
     </div>
@@ -64,20 +72,39 @@
 
     <!-- ══ DASHBOARD ══ -->
     <div class="section active" id="sec-dashboard">
-      <!-- Row 1: 4 metric cards -->
-      <div class="metrics" id="dashboard-metrics-row1">
+      <!-- Row 1: 5 metric cards -->
+      <div class="metrics metrics-5" id="dashboard-metrics-row1">
         <div class="mc"><div class="mc-label">Gross income</div><div class="mc-value pos" id="mc-income">—</div><div class="mc-sub" id="mc-income-sub">Loading…</div></div>
-        <div class="mc"><div class="mc-label">Tax</div><div class="mc-value" id="mc-tax">—</div><div class="mc-sub" id="mc-tax-sub"></div></div>
-        <div class="mc"><div class="mc-label">Taxable expense</div><div class="mc-value neg" id="mc-taxable-exp">—</div><div class="mc-sub" id="mc-taxable-exp-sub"></div></div>
-        <div class="mc"><div class="mc-label">Net Cash Inflow / Outflow</div><div class="mc-value pos" id="mc-cashflow">—</div><div class="mc-sub" id="mc-cashflow-sub"></div></div>
+        <div class="mc"><div class="mc-label">Allowable Expenses</div><div class="mc-value neg" id="mc-taxable-exp">—</div><div class="mc-sub" id="mc-taxable-exp-sub"></div></div>
+        <div class="mc"><div class="mc-label">Tax Liability</div><div class="mc-value" id="mc-tax">—</div><div class="mc-sub" id="mc-tax-sub"></div></div>
+        <div class="mc"><div class="mc-label">Accrued Expenses</div><div class="mc-value neg" id="mc-exp-used">—</div><div class="mc-sub" id="mc-exp-used-sub"></div></div>
+        <div class="mc"><div class="mc-label">Saving (Used)</div><div class="mc-value" id="mc-sav-used">—</div><div class="mc-sub" id="mc-sav-used-sub"></div></div>
       </div>
 
-      <!-- Row 2: 4 metric cards -->
-      <div class="metrics" id="dashboard-metrics-row2">
-        <div class="mc"><div class="mc-label">Expense ex Tax (Used)</div><div class="mc-value neg" id="mc-exp-used">—</div><div class="mc-sub" id="mc-exp-used-sub"></div></div>
-        <div class="mc"><div class="mc-label">Expense ex Tax (Paid)</div><div class="mc-value neg" id="mc-exp-paid">—</div><div class="mc-sub" id="mc-exp-paid-sub"></div></div>
-        <div class="mc"><div class="mc-label">Saving (Used)</div><div class="mc-value" id="mc-sav-used">—</div><div class="mc-sub" id="mc-sav-used-sub"></div></div>
+      <!-- Row 2: 5 metric cards -->
+      <div class="metrics metrics-5" id="dashboard-metrics-row2">
+        <div class="mc"><div class="mc-label">Allocated Tax Paid</div><div class="mc-value neg" id="mc-tax-paid">—</div><div class="mc-sub" id="mc-tax-paid-sub"></div></div>
+        <div class="mc"><div class="mc-label">Expenses Paid</div><div class="mc-value neg" id="mc-exp-paid">—</div><div class="mc-sub" id="mc-exp-paid-sub"></div></div>
+        <div class="mc"><div class="mc-label">Cash Outflow</div><div class="mc-value neg" id="mc-cash-outflow">—</div><div class="mc-sub" id="mc-cash-outflow-sub"></div></div>
         <div class="mc"><div class="mc-label">Saving (Paid)</div><div class="mc-value" id="mc-sav-paid">—</div><div class="mc-sub" id="mc-sav-paid-sub"></div></div>
+        <div class="mc"><div class="mc-label">Net Cash Flow</div><div class="mc-value pos" id="mc-cashflow">—</div><div class="mc-sub" id="mc-cashflow-sub"></div></div>
+      </div>
+
+      <div class="card" id="dashboard-overview-chart">
+        <div class="card-title"><i class="ti ti-chart-bar"></i>Income, expense, and saving</div>
+        <div style="font-size:12px;color:#8492a6">Loading…</div>
+      </div>
+
+      <div class="row2">
+        <div class="card" id="dashboard-expense-mix">
+          <div class="card-title"><i class="ti ti-chart-donut"></i>Expense mix</div>
+          <div style="font-size:12px;color:#8492a6">Loading…</div>
+        </div>
+
+        <div class="card" id="dashboard-income-mix">
+          <div class="card-title"><i class="ti ti-chart-donut-3"></i>Income mix</div>
+          <div style="font-size:12px;color:#8492a6">Loading…</div>
+        </div>
       </div>
 
       <div class="row3">
@@ -102,11 +129,6 @@
     <div class="section" id="sec-expenses">
       <div class="card">
         <div class="card-title"><i class="ti ti-plus"></i>Add new expense</div>
-        <div style="margin-bottom:14px">
-          <button class="btn-secondary" type="button" id="category-manager-toggle" onclick="openCategoryManager()">
-            <i class="ti ti-tags"></i>Manage categories
-          </button>
-        </div>
         <div class="catmgr-overlay" id="catmgr-overlay">
           <div class="catmgr-modal">
             <div class="catmgr-header">
@@ -137,7 +159,7 @@
           <div class="form-group"><label>Group</label><select id="exp-group"></select></div>
           <div class="form-group"><label>Amount (GBP)</label><input type="number" placeholder="0.00" step="0.01" id="exp-gbp"></div>
           <div class="form-group"><label>Amount (HKD) — optional</label><input type="number" placeholder="0.00" step="0.01" id="exp-hkd"></div>
-          <div class="form-group"><label>Payment method</label><select id="exp-payment"><option value="">— No linked account</option><option>Monzo Current</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option><option>HSBC UK Savings</option></select></div>
+          <div class="form-group"><label>Payment method</label><select id="exp-payment"><option value="">— No linked account</option><option selected>Monzo Current</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option><option>HSBC UK Savings</option><option>Hangseng HKD Savings</option><option>Hangseng I-HKD Saving</option></select></div>
           <div class="form-group"><label>Notes</label><input type="text" placeholder="Optional note" id="exp-notes"></div>
         </div>
         <div class="checkbox-row"><input type="checkbox" id="exp-tax"><span>Tax deductible</span></div>
@@ -164,7 +186,7 @@
           <div class="search-wrap"><i class="ti ti-search"></i><input type="text" placeholder="Search expenses…" id="expense-search"></div>
           <select id="expense-cat-filter"><option>All categories</option></select>
           <select id="expense-group-filter"><option>All groups</option><option>Living</option><option>TaxPayment</option></select>
-          <select id="expense-payment-filter"><option>All payment methods</option><option>Monzo Current</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option></select>
+          <select id="expense-payment-filter"><option>All payment methods</option><option>Monzo Current</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option><option>HSBC UK Savings</option><option>Hangseng HKD Savings</option><option>Hangseng I-HKD Saving</option></select>
           <button class="btn-secondary" onclick="loadExpenses()"><i class="ti ti-filter"></i>Filter</button>
         </div>
       </div>
@@ -247,7 +269,7 @@
     <!-- ══ TAX ══ -->
     <div class="section" id="sec-tax">
       <div class="metrics metrics-3" id="tax-metrics">
-        <div class="mc"><div class="mc-label">Tax due (GBP)</div><div class="mc-value" id="mc-tax-total">—</div><div class="mc-sub" id="mc-tax-total-sub">Loading…</div></div>
+        <div class="mc"><div class="mc-label">Tax Liability (GBP)</div><div class="mc-value" id="mc-tax-total">—</div><div class="mc-sub" id="mc-tax-total-sub">Loading…</div></div>
         <div class="mc"><div class="mc-label">Entries</div><div class="mc-value" id="mc-tax-count">—</div><div class="mc-sub">Selected period</div></div>
         <div class="mc"><div class="mc-label">Average entry</div><div class="mc-value" id="mc-tax-average">—</div><div class="mc-sub">Selected period</div></div>
       </div>
@@ -268,7 +290,7 @@
             <option>Month</option>
             <option>Financial year</option>
             <option>Calendar year</option>
-            <option>Custom</option>
+            <option selected>Custom</option>
           </select>
           <select id="tax-timeframe-filter" aria-label="Tax time frame"></select>
           <div class="expense-custom-range" id="tax-custom-range">
@@ -538,52 +560,75 @@
     <!-- ══ REPORTS ══ -->
     <div class="section" id="sec-reports">
       <div class="card" style="padding:13px 17px">
-        <div class="filter-bar">
-          <select id="report-period-filter"><option>Financial year</option><option>Calendar year</option><option>Month</option></select>
+        <div class="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="seg-control" style="margin-bottom:0">
+            <button class="seg-btn active" onclick="setReportPeriod(this,'Month')">Month</button>
+            <button class="seg-btn" onclick="setReportPeriod(this,'Financial year')">Financial Year</button>
+            <button class="seg-btn" onclick="setReportPeriod(this,'Calendar year')">Calendar Year</button>
+            <button class="seg-btn" onclick="setReportPeriod(this,'Custom')">Custom</button>
+          </div>
+          <div class="period-selector-wrap" id="report-period-selector-wrap" style="display:flex;align-items:center;gap:4px">
+            <button class="period-nav-btn" onclick="stepReportPeriod(-1)"><i class="ti ti-chevron-left"></i></button>
+            <select id="report-period-selector" class="period-selector"></select>
+            <button class="period-nav-btn" onclick="stepReportPeriod(1)"><i class="ti ti-chevron-right"></i></button>
+          </div>
+          <div id="report-custom-period-wrap" style="display:none;align-items:center;gap:6px">
+            <input type="date" id="report-custom-start" class="custom-date-input">
+            <span class="custom-period-sep">to</span>
+            <input type="date" id="report-custom-end" class="custom-date-input">
+          </div>
           <select id="report-group-filter"><option>All groups</option><option>Living</option><option>TaxPayment</option></select>
           <select id="report-cat-filter"><option>All categories</option></select>
-          <button class="btn-secondary" onclick="loadReports()"><i class="ti ti-refresh"></i>Refresh</button>
+          <select id="report-classification-filter"><option>All classifications</option></select>
         </div>
       </div>
-      <div class="metrics metrics-3" id="report-metrics">
-        <div class="mc"><div class="mc-label">Total (GBP)</div><div class="mc-value" id="mc-rpt-gbp">—</div><div class="mc-sub">Filtered period</div></div>
+      <div class="catmgr-overlay" id="clf-overlay">
+        <div class="catmgr-modal" style="width:640px">
+          <div class="catmgr-header">
+            <div class="catmgr-title">Manage classifications</div>
+            <button class="catmgr-close" type="button" onclick="closeClassificationManager()">&times;</button>
+          </div>
+          <div class="catmgr-body" id="clf-body"></div>
+          <div class="catmgr-footer">
+            <div class="form-status" id="clf-status"></div>
+            <div class="catmgr-footer-actions">
+              <button class="btn-primary" onclick="addClassificationGroup()"><i class="ti ti-plus"></i>Add classification</button>
+              <button class="btn-secondary" type="button" onclick="closeClassificationManager()">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="metrics metrics-4" id="report-metrics">
+        <div class="mc"><div class="mc-label">Total (GBP)</div><div class="mc-value" id="mc-rpt-gbp">—</div><div class="mc-sub">Incl. converted HKD</div></div>
+        <div class="mc"><div class="mc-label">GBP Only</div><div class="mc-value" id="mc-rpt-gbp-only">—</div><div class="mc-sub">GBP expenses only</div></div>
         <div class="mc"><div class="mc-label">Total (HKD)</div><div class="mc-value" id="mc-rpt-hkd">—</div><div class="mc-sub">HKD expenses only</div></div>
         <div class="mc"><div class="mc-label">Transactions</div><div class="mc-value" id="mc-rpt-count">—</div><div class="mc-sub">In date range</div></div>
       </div>
 
-      <!-- Category breakdown -->
+      <!-- Spending breakdown -->
       <div class="report-block">
-        <div class="report-block-title">Spending by category</div>
+        <div class="report-block-title">Spending breakdown</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <div class="seg-control" style="margin-bottom:0">
-            <button class="seg-btn active" onclick="switchCatType('bar',this)">Bar</button>
-            <button class="seg-btn" onclick="switchCatType('pie',this)">Pie</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div class="seg-control" id="rpt-breakdown-mode" style="margin-bottom:0">
+              <button class="seg-btn active" onclick="setReportBreakdownMode('category',this)">By Category</button>
+              <button class="seg-btn" onclick="setReportBreakdownMode('classification',this)">By Classification</button>
+            </div>
+            <div class="seg-control" style="margin-bottom:0">
+              <button class="seg-btn active" onclick="switchCatType('bar',this)">Bar</button>
+              <button class="seg-btn" onclick="switchCatType('pie',this)">Pie</button>
+            </div>
           </div>
-          <div class="seg-control" style="margin-bottom:0">
-            <button class="seg-btn active" onclick="setCurrency('GBP',this)">GBP</button>
+          <div class="seg-control" id="rpt-currency-toggle" style="margin-bottom:0">
+            <button class="seg-btn active" onclick="setCurrency('TOTAL',this)">Total (in GBP)</button>
+            <button class="seg-btn" onclick="setCurrency('GBP',this)">GBP</button>
             <button class="seg-btn" onclick="setCurrency('HKD',this)">HKD</button>
           </div>
         </div>
         <div id="cat-bar-wrap" class="chart-wrap hbar-wrap"><canvas id="hbar"></canvas></div>
         <div id="cat-pie-wrap" class="chart-wrap" style="height:260px;display:none"><canvas id="cat-pie"></canvas></div>
         <div style="overflow-x:auto;margin-top:16px">
-          <table class="cat-table"><thead><tr><th>Category</th><th>Amount (GBP)</th><th>Percentage</th></tr></thead><tbody id="cat-table-body"></tbody></table>
-        </div>
-      </div>
-
-      <!-- Living classification -->
-      <div class="report-block">
-        <div class="report-block-title">Living classification</div>
-        <div style="display:flex;align-items:center;margin-bottom:14px">
-          <div class="seg-control" style="margin-bottom:0">
-            <button class="seg-btn active" onclick="switchLivType('bar',this)">Bar</button>
-            <button class="seg-btn" onclick="switchLivType('pie',this)">Pie</button>
-          </div>
-        </div>
-        <div id="liv-bar-wrap" class="chart-wrap hbar-wrap"><canvas id="living-bar"></canvas></div>
-        <div id="liv-pie-wrap" class="chart-wrap" style="height:260px;display:none"><canvas id="liv-pie"></canvas></div>
-        <div style="overflow-x:auto;margin-top:16px">
-          <table class="cat-table"><thead><tr><th>Category</th><th>Amount (GBP)</th><th>Percentage</th></tr></thead><tbody id="liv-table-body"></tbody></table>
+          <table class="cat-table"><thead><tr><th id="rpt-breakdown-col-header">Category</th><th>Amount (GBP)</th><th>Percentage</th></tr></thead><tbody id="cat-table-body"></tbody></table>
         </div>
       </div>
 
@@ -609,6 +654,53 @@
             <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Group</th><th>Amount (GBP)</th><th>Amount (HKD)</th></tr></thead>
             <tbody id="largest-tbody"><tr><td colspan="6" style="text-align:center;color:#8492a6;padding:12px">Loading…</td></tr></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MONTHLY OVERVIEW ══ -->
+    <div class="section" id="sec-monthly-overview">
+      <div class="card" style="padding:13px 17px">
+        <div class="filter-bar" style="display:flex;align-items:center;gap:10px">
+          <div class="seg-control" id="mo-year-type-control" style="margin-bottom:0">
+            <button class="seg-btn" onclick="setMonthlyOverviewYearType('financial',this)">Financial Year</button>
+            <button class="seg-btn active" onclick="setMonthlyOverviewYearType('calendar',this)">Calendar Year</button>
+          </div>
+          <button class="period-nav-btn" onclick="stepMonthlyOverviewYear(-1)" title="Previous year"><i class="ti ti-chevron-left"></i></button>
+          <select id="mo-year-selector" class="period-selector" aria-label="Select year"></select>
+          <button class="period-nav-btn" onclick="stepMonthlyOverviewYear(1)" title="Next year"><i class="ti ti-chevron-right"></i></button>
+          <div style="flex:1"></div>
+          <div class="seg-control" id="mo-basis-control" style="margin-bottom:0">
+            <button class="seg-btn active" onclick="setMonthlyOverviewBasis('paid',this)">Paid</button>
+            <button class="seg-btn" onclick="setMonthlyOverviewBasis('used',this)">Used</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-chart-line"></i>Monthly trends</div>
+        <div style="position:relative;height:300px">
+          <canvas id="mo-trend-chart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div class="card-title" style="margin-bottom:0"><i class="ti ti-arrow-down-circle"></i>Expense breakdown by month</div>
+          <div class="seg-control" id="mo-exp-filter-control" style="margin-bottom:0">
+            <button class="seg-btn active" onclick="setMoExpFilter('all',this)">Expense Based</button>
+            <button class="seg-btn" onclick="setMoExpFilter('with-liability',this)">With Tax Liability</button>
+            <button class="seg-btn" onclick="setMoExpFilter('ex-tax',this)">Exclude Tax</button>
+          </div>
+        </div>
+        <div class="mo-legend" id="mo-expense-legend"></div>
+        <div class="mo-chart-grid" id="mo-expense-grid">
+          <div style="font-size:12px;color:#8492a6">Loading...</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-arrow-up-circle"></i>Income breakdown by month</div>
+        <div class="mo-legend" id="mo-income-legend"></div>
+        <div class="mo-chart-grid" id="mo-income-grid">
+          <div style="font-size:12px;color:#8492a6">Loading...</div>
         </div>
       </div>
     </div>
@@ -666,13 +758,99 @@
       </div>
     </div>
 
+    <!-- ══ DATA CAVEATS ══ -->
+    <div class="section" id="sec-data-notes">
+      <div class="card">
+        <div class="card-title"><i class="ti ti-info-circle"></i>Data caveats &amp; calculation notes</div>
+        <div style="font-size:12.5px;color:#3d4a5c;line-height:1.7">
+          <p style="margin-bottom:12px;color:#8492a6;font-style:italic">All percentages on the dashboard are calculated as a percentage of gross income.</p>
+
+          <p style="margin-bottom:6px"><strong>Row 1 — Income &amp; accrual view</strong></p>
+          <table class="data-tbl" style="margin-bottom:16px">
+            <thead><tr><th>Metric</th><th style="text-align:left">How it is calculated</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Gross Income</strong></td><td style="text-align:left">Sum of all income transactions in the selected period.</td></tr>
+              <tr><td><strong>Allowable Expenses</strong></td><td style="text-align:left">Sum of expenses marked as tax-deductible in the selected period.</td></tr>
+              <tr><td><strong>Tax Liability</strong></td><td style="text-align:left">Estimated tax burden for the period. Monthly view: total tax due entries in the relevant financial year ÷ 12. Financial year view: total tax due entries for that year. Other views: actual tax payments (expenses in the "Tax Payment" group).</td></tr>
+              <tr><td><strong>Accrued Expenses</strong></td><td style="text-align:left">Total expenses (excl. Tax Payment group) with annual costs (e.g. Car Related: Annual) spread monthly (÷ 12) instead of showing the full amount in the month paid.</td></tr>
+              <tr><td><strong>Saving (Used)</strong></td><td style="text-align:left">Gross Income − Accrued Expenses − Tax Liability. Represents smoothed saving after spreading annual costs.</td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin-bottom:6px"><strong>Row 2 — Cash basis view</strong></p>
+          <table class="data-tbl" style="margin-bottom:16px">
+            <thead><tr><th>Metric</th><th style="text-align:left">How it is calculated</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Allocated Tax Paid</strong></td><td style="text-align:left">Total tax payment expenses in the relevant financial year ÷ 12. Spreads the actual tax paid across months evenly. Subtitle shows actual tax payment expenses recorded in the selected period.</td></tr>
+              <tr><td><strong>Expenses Paid</strong></td><td style="text-align:left">Total expenses (excl. Tax Payment group) as actually paid in the period. Full amounts shown in the month they occurred.</td></tr>
+              <tr><td><strong>Cash Outflow</strong></td><td style="text-align:left">Expenses Paid + actual tax paid this period. Total cash leaving your accounts in the period.</td></tr>
+              <tr><td><strong>Saving (Paid)</strong></td><td style="text-align:left">Gross Income − Expenses Paid − Tax Liability. Cash-basis saving for the period.</td></tr>
+              <tr><td><strong>Net Cash Flow</strong></td><td style="text-align:left">Cash inflow (income received) − cash outflow (expenses + tax payments) for the period.</td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin-bottom:6px"><strong>Key differences: Row 1 vs Row 2</strong></p>
+          <table class="data-tbl" style="margin-bottom:16px">
+            <thead><tr><th style="text-align:left">Concept</th><th style="text-align:left">Row 1 (Accrual)</th><th style="text-align:left">Row 2 (Cash)</th></tr></thead>
+            <tbody>
+              <tr><td style="text-align:left">Annual expenses</td><td style="text-align:left">Spread monthly (÷ 12)</td><td style="text-align:left">Full amount in month paid</td></tr>
+              <tr><td style="text-align:left">Tax</td><td style="text-align:left">Tax Liability from tax due entries</td><td style="text-align:left">Allocated Tax Paid from actual payments</td></tr>
+              <tr><td style="text-align:left">Best for</td><td style="text-align:left">Understanding true monthly cost of living</td><td style="text-align:left">Tracking actual cash movements</td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin-bottom:8px"><strong>Expense breakout</strong></p>
+          <p style="margin-bottom:12px">Expenses are classified into super-groups (Housing, Driving Related, Necessaries, etc.) based on mappings configured in Settings → Expense Classifications. The "Paid" view shows actual amounts; the "Used" view distributes the used/paid adjustment proportionally across non-tax classifications.</p>
+          <p style="margin-bottom:8px"><strong>Financial year</strong></p>
+          <p style="margin-bottom:12px">UK tax year: 6 April to 5 April. When viewing by month, Tax Liability and Allocated Tax Paid reference the financial year containing that month and divide by 12.</p>
+          <p style="margin-bottom:8px"><strong>HKD conversion</strong></p>
+          <p>HKD-only expenses are converted to GBP using HMRC monthly exchange rates where available.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div class="section" id="sec-settings">
+      <div class="card">
+        <div class="card-title"><i class="ti ti-tags"></i>Manage categories</div>
+        <div style="font-size:12px;color:#8492a6;margin-bottom:14px">
+          Add, rename, or remove expense categories within each group.
+        </div>
+        <div id="settings-cat-body"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-adjustments"></i>Expense classifications</div>
+        <div style="font-size:12px;color:#8492a6;margin-bottom:14px">
+          Group your expense categories into higher-level classifications for dashboard breakout and reporting.
+          Changes take effect immediately.
+        </div>
+        <div id="settings-clf-body"></div>
+        <div class="form-status" id="settings-clf-status"></div>
+        <div class="form-actions" style="margin-top:14px">
+          <button class="btn-primary" onclick="addClassificationGroup()"><i class="ti ti-plus"></i>Add classification</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-coins"></i>Income sources &amp; classifications</div>
+        <div style="font-size:12px;color:#8492a6;margin-bottom:14px">
+          Assign colors to income sources and group them into classifications for the Income Mix chart.
+        </div>
+        <div id="settings-income-clf-body"></div>
+        <div class="form-status" id="settings-income-clf-status"></div>
+        <div class="form-actions" style="margin-top:14px">
+          <button class="btn-primary" onclick="addIncomeClassificationGroup()"><i class="ti ti-plus"></i>Add income group</button>
+          <button class="btn-secondary" onclick="addIncomeSourceConfig()"><i class="ti ti-plus"></i>Add source</button>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 </div><!-- /app -->
 
-<script src="/js/api.js?v=20260626-32"></script>
-<script src="/js/utils.js?v=20260626-32"></script>
-<script src="/js/dashboard.js?v=20260626-32"></script>
-<script src="/js/app.js?v=20260626-32"></script>
+<script src="/js/api.js?v=20260627-55"></script>
+<script src="/js/utils.js?v=20260627-55"></script>
+<script src="/js/dashboard.js?v=20260627-55"></script>
+<script src="/js/app.js?v=20260627-55"></script>
 </body>
 </html>

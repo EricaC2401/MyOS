@@ -32,6 +32,8 @@ LINKED_PAYMENT_METHODS = {
     "HSBC HK HKD": ("HSBC HK", "HKD", "HKD"),
     "HSBC UK Savings": ("HSBC UK", "Savings", "GBP"),
     "TopCashback": ("TopCashback", "Cashback", "GBP"),
+    "Hangseng HKD Savings": ("Hangseng", "HKD Savings", "HKD"),
+    "Hangseng I-HKD Saving": ("Hangseng", "I-HKD Saving", "HKD"),
 }
 
 

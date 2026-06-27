@@ -71,7 +71,7 @@ except ImportError:
 
 
 from api.routers import (
-    health, categories, reports,
+    health, categories, classifications, income_classifications, reports,
     expenses, income, tax_due,
     finance, exchange, recurring,
     import_data, export_data,
@@ -79,6 +79,8 @@ from api.routers import (
 
 app.include_router(health.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
+app.include_router(classifications.router, prefix="/api")
+app.include_router(income_classifications.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(expenses.router, prefix="/api")
 app.include_router(income.router, prefix="/api")
