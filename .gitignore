@@ -6,5 +6,5 @@ __pycache__/
 .DS_Store
 sample_data/
 
-.streamlit/secrets.toml
-.env
+*.env
+*.toml

@@ -6,12 +6,15 @@ import calendar
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+import time
 
 from fastapi import APIRouter, Query
 
 from src.db import (
     DatabaseConnectionError,
     DatabaseSchemaError,
+    fetch_classification_groups,
+    fetch_classification_mappings,
     fetch_finance_snapshot_entries,
     fetch_hmrc_monthly_exchange_rates,
     fetch_income_tax_due_entries,
@@ -61,6 +64,63 @@ from api.serializers import _dec
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
+_REPORT_SOURCE_CACHE_TTL_SECONDS = 2.0
+_REPORT_CLASSIFICATION_CACHE_TTL_SECONDS = 30.0
+_report_source_cache: dict[str, tuple[float, object]] = {}
+
+
+def _get_ttl_cached_value(cache_key: str, ttl_seconds: float, loader):
+    cached = _report_source_cache.get(cache_key)
+    now = time.monotonic()
+    if cached is not None:
+        cached_at, cached_value = cached
+        if now - cached_at <= ttl_seconds:
+            return cached_value
+
+    loaded_value = loader()
+    _report_source_cache[cache_key] = (now, loaded_value)
+    return loaded_value
+
+
+def _get_report_transactions():
+    return _get_ttl_cached_value(
+        "transactions",
+        _REPORT_SOURCE_CACHE_TTL_SECONDS,
+        fetch_transactions,
+    )
+
+
+def _get_report_income_transactions():
+    return _get_ttl_cached_value(
+        "income_transactions",
+        _REPORT_SOURCE_CACHE_TTL_SECONDS,
+        fetch_income_transactions,
+    )
+
+
+def _get_report_tax_due_entries():
+    return _get_ttl_cached_value(
+        "tax_due_entries",
+        _REPORT_SOURCE_CACHE_TTL_SECONDS,
+        fetch_income_tax_due_entries,
+    )
+
+
+def _get_report_classification_groups():
+    return _get_ttl_cached_value(
+        "classification_groups",
+        _REPORT_CLASSIFICATION_CACHE_TTL_SECONDS,
+        fetch_classification_groups,
+    )
+
+
+def _get_report_classification_mappings():
+    return _get_ttl_cached_value(
+        "classification_mappings",
+        _REPORT_CLASSIFICATION_CACHE_TTL_SECONDS,
+        fetch_classification_mappings,
+    )
+
 
 def _filter_tax_payments(transactions):
     return [
@@ -69,20 +129,34 @@ def _filter_tax_payments(transactions):
     ]
 
 
-def _filter_report_transactions(transactions, *, start_date, end_date, group=None, category=None):
+def _filter_report_transactions(transactions, *, start_date, end_date, group=None, category=None, classification=None):
     filtered = filter_transactions_by_date_range(
         transactions,
         start_date=start_date,
         end_date=end_date,
     )
+    classification_categories = None
+    if classification and classification != "All classifications":
+        classification_categories = _get_categories_for_classification(classification)
+
     results = []
     for transaction in filtered:
         if group and group != "All groups" and transaction.group_name != group:
             continue
         if category and category != "All categories" and transaction.category != category:
             continue
+        if classification_categories is not None:
+            if (transaction.group_name, transaction.category) not in classification_categories:
+                continue
         results.append(transaction)
     return results
+
+
+def _get_categories_for_classification(classification_name):
+    groups = _get_report_classification_groups()
+    mappings = _get_report_classification_mappings()
+    group_ids = {g.id for g in groups if g.name == classification_name}
+    return {(m.expense_group, m.expense_category) for m in mappings if m.classification_group_id in group_ids}
 
 
 def _is_tax_payment_group(group_name: str) -> bool:
@@ -106,6 +180,64 @@ def _get_expense_month_rates(expenses):
             cached_rates = fetched_rates
         rates_by_month[month_anchor] = cached_rates
     return rates_by_month
+
+
+def _iter_month_ranges(start_date: date, end_date: date):
+    current = start_date.replace(day=1)
+    while current <= end_date:
+        last_day = calendar.monthrange(current.year, current.month)[1]
+        month_end = date(current.year, current.month, last_day)
+        yield max(start_date, current), min(end_date, month_end)
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+
+
+def _build_group_category_spending_used_for_period(
+    transactions,
+    filtered_transactions_all_dates,
+    *,
+    start_date: date,
+    end_date: date,
+    month_rates,
+):
+    totals_gbp: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.00"))
+    totals_hkd: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.00"))
+
+    for month_start, month_end in _iter_month_ranges(start_date, end_date):
+        month_transactions = filter_transactions_by_date_range(
+            transactions,
+            start_date=month_start,
+            end_date=month_end,
+        )
+        fy_start = get_financial_year_start(month_start)
+        fy_end = get_financial_year_end(month_start)
+        fy_transactions = filter_transactions_by_date_range(
+            filtered_transactions_all_dates,
+            start_date=fy_start,
+            end_date=fy_end,
+        )
+        month_rows = _build_group_category_spending_used(
+            month_transactions,
+            fy_transactions,
+            month_rates,
+        )
+        for row in month_rows:
+            key = (str(row["group"]), str(row["category"]))
+            totals_gbp[key] += Decimal(row["amount_gbp"])
+            totals_hkd[key] += Decimal(row["amount_hkd"])
+
+    return [
+        {
+            "group": group,
+            "category": category,
+            "amount_gbp": _dec(amount_gbp),
+            "amount_hkd": _dec(totals_hkd[(group, category)]),
+        }
+        for (group, category), amount_gbp in sorted(totals_gbp.items())
+        if amount_gbp != 0
+    ]
 
 
 def _build_expense_breakout_rows(transactions, total_paid_gbp, month_rates):
@@ -251,14 +383,16 @@ def reports_summary(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     month_rates = _get_expense_month_rates(filtered)
     total_gbp = sum(
@@ -297,6 +431,9 @@ def dashboard_report(
     period_mode: str = Query("Financial Year"),
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
+    group: str | None = Query(None),
+    category: str | None = Query(None),
+    classification: str | None = Query(None),
 ):
     today = date.today()
     if start_date is None or end_date is None:
@@ -305,16 +442,21 @@ def dashboard_report(
         start_date = start_date or fy_start
         end_date = end_date or fy_end
 
-    transactions = fetch_transactions()
-    incomes = fetch_income_transactions()
-    tax_due_entries = fetch_income_tax_due_entries()
+    transactions = _get_report_transactions()
+    incomes = _get_report_income_transactions()
+    tax_due_entries = _get_report_tax_due_entries()
     tax_payments = _filter_tax_payments(transactions)
 
     filtered_incomes = filter_income_transactions_by_date_range(
         incomes, start_date=start_date, end_date=end_date,
     )
-    filtered_expenses = filter_transactions_by_date_range(
-        transactions, start_date=start_date, end_date=end_date,
+    filtered_expenses = _filter_report_transactions(
+        transactions,
+        start_date=start_date,
+        end_date=end_date,
+        group=group,
+        category=category,
+        classification=classification,
     )
     filtered_tax_payments = filter_transactions_by_date_range(
         tax_payments, start_date=start_date, end_date=end_date,
@@ -326,6 +468,14 @@ def dashboard_report(
         financial_year_expenses = filter_transactions_by_date_range(
             transactions, start_date=fy_start, end_date=fy_end,
         )
+        financial_year_expenses = _filter_report_transactions(
+            financial_year_expenses,
+            start_date=fy_start,
+            end_date=fy_end,
+            group=group,
+            category=category,
+            classification=classification,
+        )
         filtered_tax_due = filter_tax_due_entries_by_date_range(
             tax_due_entries, start_date=fy_start, end_date=fy_end,
         )
@@ -335,8 +485,16 @@ def dashboard_report(
             tax_due_entries, start_date=start_date, end_date=end_date,
         )
 
+    all_filtered_expenses = _filter_report_transactions(
+        transactions,
+        start_date=date.min,
+        end_date=date.max,
+        group=group,
+        category=category,
+        classification=classification,
+    )
     expense_rates = _get_expense_month_rates(
-        filtered_expenses if financial_year_expenses is None else financial_year_expenses
+        all_filtered_expenses
     )
 
     summary = build_overall_dashboard_summary(
@@ -357,17 +515,19 @@ def dashboard_report(
     net_cash_flow = getattr(summary, "net_cash_flow_gbp", cash_inflow - cash_outflow)
 
     expense_paid_ex_tax = summary.expense_gbp
-    expense_used_ex_tax = (
-        summary.annualised_monthly_expense_gbp
-        if summary.annualised_monthly_expense_gbp is not None
-        else summary.expense_gbp
+    group_category_spending_used = _build_group_category_spending_used_for_period(
+        filtered_expenses,
+        all_filtered_expenses,
+        start_date=start_date,
+        end_date=end_date,
+        month_rates=expense_rates or None,
+    )
+    expense_used_ex_tax = sum(
+        (Decimal(row["amount_gbp"]) for row in group_category_spending_used),
+        Decimal("0.00"),
     )
     saving_paid = summary.net_saving_after_tax_amount_gbp
-    saving_used = (
-        (summary.annualised_monthly_net_saving_gbp - summary.total_tax_amount_gbp)
-        if summary.annualised_monthly_net_saving_gbp is not None
-        else summary.net_saving_after_tax_amount_gbp
-    )
+    saving_used = summary.gross_income_gbp - expense_used_ex_tax - summary.total_tax_amount_gbp
 
     # Build trend data — daily for Month, monthly otherwise
     if period_mode == "Month" and build_daily_trend_report is not None:
@@ -447,6 +607,7 @@ def dashboard_report(
             "tax_paid_monthly_gbp": _dec(tax_paid_monthly),
             "fy_tax_total_gbp": _dec(fy_tax_total),
             "period_tax_paid_gbp": _dec(period_tax_paid),
+            "transaction_count": len(filtered_expenses),
         },
         "expense_breakout": breakout_rows,
         "displayed_tax_gbp": _dec(summary.total_tax_amount_gbp),
@@ -472,11 +633,7 @@ def dashboard_report(
         "stacked_trend": stacked_trend,
         "period_label": _build_period_label(period_mode, start_date, end_date),
         "group_category_spending": _build_group_category_spending(filtered_expenses, expense_rates or None),
-        "group_category_spending_used": _build_group_category_spending_used(
-            filtered_expenses,
-            financial_year_expenses if financial_year_expenses is not None else filtered_expenses,
-            expense_rates or None,
-        ),
+        "group_category_spending_used": group_category_spending_used,
     }
 
 
@@ -547,14 +704,16 @@ def category_spending(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     month_rates = _get_expense_month_rates(filtered)
     rows = build_category_spending_report(filtered, month_rates_by_month=month_rates or None)
@@ -570,14 +729,16 @@ def living_classification(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     rows = build_living_classification_report(filtered)
     return [
@@ -592,14 +753,16 @@ def monthly_trend(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     month_rates = _get_expense_month_rates(filtered)
     rows = build_monthly_trend_report(filtered, month_rates_by_month=month_rates or None)
@@ -615,14 +778,16 @@ def daily_trend(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     month_rates = _get_expense_month_rates(filtered)
     if build_daily_trend_report is None:
@@ -640,15 +805,17 @@ def stacked_trend(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
     granularity: str = Query("monthly"),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     month_rates = _get_expense_month_rates(filtered)
 
@@ -679,15 +846,17 @@ def largest_expenses(
     end_date: date = Query(...),
     group: str | None = Query(None),
     category: str | None = Query(None),
+    classification: str | None = Query(None),
     limit: int = Query(5),
 ):
-    transactions = fetch_transactions()
+    transactions = _get_report_transactions()
     filtered = _filter_report_transactions(
         transactions,
         start_date=start_date,
         end_date=end_date,
         group=group,
         category=category,
+        classification=classification,
     )
     rows = build_largest_expenses_report(filtered, limit=limit)
     return [
@@ -758,9 +927,9 @@ def monthly_overview_report(
     overall_start = months[0]["start_date"]
     overall_end = months[-1]["end_date"]
 
-    all_expenses = fetch_transactions()
-    all_incomes = fetch_income_transactions()
-    all_tax_due = fetch_income_tax_due_entries()
+    all_expenses = _get_report_transactions()
+    all_incomes = _get_report_income_transactions()
+    all_tax_due = _get_report_tax_due_entries()
     all_tax_payments = _filter_tax_payments(all_expenses)
 
     year_expenses = filter_transactions_by_date_range(

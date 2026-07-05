@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Expense Tracker</title>
-<link rel="stylesheet" href="/css/app.css?v=20260628-01">
+<title>MyOS</title>
+<link rel="stylesheet" href="/css/app.css?v=20260628-07">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -12,27 +12,72 @@
 <div class="app">
 
 <!-- SIDEBAR -->
-<div class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-logo-icon"><i class="ti ti-receipt-2"></i></div>
-    <span class="sb-logo-text">Expenses</span>
+<div class="sidebar" id="app-sidebar">
+
+  <!-- HOME SIDEBAR -->
+  <div class="sb-mode" id="sb-mode-home">
+    <div class="sb-logo">
+      <div class="sb-logo-icon"><i class="ti ti-layout-grid"></i></div>
+      <span class="sb-logo-text">MyOS</span>
+    </div>
+    <div class="sb-section">Apps</div>
+    <button class="nav active" onclick="navArea('home',this)"><i class="ti ti-home"></i>Home</button>
+    <button class="nav" onclick="navArea('finance',null)"><i class="ti ti-building-bank"></i>Finance</button>
+    <button class="nav" onclick="navArea('planner',null)"><i class="ti ti-calendar-event"></i>Daily Planner</button>
+    <div class="sb-spacer"></div>
+    <button class="nav" onclick="navArea('data',this)"><i class="ti ti-database"></i>Data</button>
+    <button class="nav" onclick="navArea('settings',this)"><i class="ti ti-settings"></i>Settings</button>
   </div>
-  <div class="sb-section">Overview / Insight</div>
-  <div class="nav active" onclick="nav('dashboard',this)"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
-  <div class="nav" onclick="nav('monthly-overview',this)"><i class="ti ti-calendar-stats"></i>Monthly Overview</div>
-  <div class="nav" onclick="nav('reports',this)"><i class="ti ti-chart-pie"></i>Expense Analytics</div>
-  <div class="sb-section">Records</div>
-  <div class="nav" onclick="nav('finance',this)"><i class="ti ti-building-bank"></i>Finance Snapshot</div>
-  <div class="nav" onclick="nav('expenses',this)"><i class="ti ti-arrow-down-circle"></i>Expenses</div>
-  <div class="nav" onclick="nav('income',this)"><i class="ti ti-arrow-up-circle"></i>Income</div>
-  <div class="nav" onclick="nav('tax',this)"><i class="ti ti-receipt-tax"></i>Tax</div>
-  <div class="nav" onclick="nav('recurring',this)"><i class="ti ti-repeat"></i>Recurring</div>
-  <div class="sb-section">Data</div>
-  <div class="nav" onclick="nav('import',this)"><i class="ti ti-upload"></i>Import</div>
-  <div class="nav" onclick="nav('export',this)"><i class="ti ti-download"></i>Export</div>
-  <div class="sb-spacer"></div>
-  <div class="nav" onclick="nav('data-notes',this)"><i class="ti ti-info-circle"></i>Data Caveats</div>
-  <div class="nav" onclick="nav('settings',this)"><i class="ti ti-settings"></i>Settings</div>
+
+  <!-- FINANCE SIDEBAR -->
+  <div class="sb-mode" id="sb-mode-finance" style="display:none">
+    <div class="sb-logo" onclick="navArea('home',null)" style="cursor:pointer">
+      <div class="sb-logo-icon"><i class="ti ti-layout-grid"></i></div>
+      <span class="sb-logo-text">MyOS</span>
+    </div>
+    <div class="sb-section">Overview / Insight</div>
+    <button class="nav active" onclick="navFinanceSub('dashboard',this)"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
+    <button class="nav" onclick="navFinanceSub('monthly-overview',this)"><i class="ti ti-calendar-stats"></i>Monthly Overview</button>
+    <button class="nav" onclick="navFinanceSub('reports',this)"><i class="ti ti-chart-pie"></i>Expense Analytics</button>
+    <div class="sb-section">Records</div>
+    <button class="nav" onclick="navFinanceSub('finance',this)"><i class="ti ti-building-bank"></i>Finance Snapshot</button>
+    <button class="nav" onclick="navFinanceSub('expenses',this)"><i class="ti ti-arrow-down-circle"></i>Expenses</button>
+    <button class="nav" onclick="navFinanceSub('income',this)"><i class="ti ti-arrow-up-circle"></i>Income</button>
+    <button class="nav" onclick="navFinanceSub('tax',this)"><i class="ti ti-receipt-tax"></i>Tax</button>
+    <button class="nav" onclick="navFinanceSub('recurring',this)"><i class="ti ti-repeat"></i>Recurring</button>
+    <div class="sb-section">Data</div>
+    <button class="nav" onclick="navFinanceSub('import',this)"><i class="ti ti-upload"></i>Import</button>
+    <button class="nav" onclick="navFinanceSub('export',this)"><i class="ti ti-download"></i>Export</button>
+    <div class="sb-spacer"></div>
+    <button class="nav" onclick="navFinanceSub('data-notes',this)"><i class="ti ti-info-circle"></i>Data Caveats</button>
+    <button class="nav" onclick="navFinanceSub('settings',this)"><i class="ti ti-settings"></i>Settings</button>
+  </div>
+
+  <!-- PLANNER SIDEBAR (exact match of original daily-planner.html) -->
+  <div class="sb-mode" id="sb-mode-planner" style="display:none">
+    <div class="sb-logo" onclick="navArea('home',null)" style="cursor:pointer">
+      <div class="sb-logo-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+      </div>
+      <span class="sb-logo-text">MyOS</span>
+    </div>
+    <div class="sb-section">Sections</div>
+    <button class="nav active" id="nav-schedule" onclick="showSection('schedule',this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Daily Schedule
+    </button>
+    <button class="nav" id="nav-tasks" onclick="showSection('tasks',this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>
+      Tasks &amp; Events
+    </button>
+    <button class="nav" id="nav-habits" onclick="showSection('habits',this)">
+      <i class="ti ti-target" style="font-size:13px"></i>
+      Habit Tracker
+    </button>
+    <div class="sb-spacer"></div>
+    <div class="sb-date"><strong id="sb-dow"></strong><span id="sb-date"></span></div>
+  </div>
+
 </div>
 
 <!-- MAIN -->
@@ -63,29 +108,57 @@
         <button class="seg-btn" onclick="setDashboardBasis('used', this)">Used</button>
       </div>
       <span class="period-hint" id="period-hint"></span>
-      <button class="btn-primary" id="top-btn" style="display:flex"><i class="ti ti-plus"></i><span id="top-btn-label">Add expense</span></button>
     </div>
   </div>
 
   <div class="content">
+
+    <!-- ════════════════════════════════════════ HOME AREA ════════════════════════════════════════ -->
+    <div class="area active" id="area-home">
+      <div class="home-hero">
+        <h1 class="home-title">MyOS</h1>
+        <p class="home-sub">Your personal operating system</p>
+      </div>
+      <div class="home-cards">
+        <div class="home-card" onclick="navArea('finance',document.querySelector('.sidebar .nav:nth-child(3)'))">
+          <div class="home-card-icon" style="background:#E8F5E9"><i class="ti ti-building-bank" style="color:#2E7D32"></i></div>
+          <div class="home-card-body">
+            <div class="home-card-title">Finance</div>
+            <div class="home-card-desc">Track expenses, income, tax, and finance snapshots</div>
+            <div class="home-card-stats" id="home-finance-stats"></div>
+          </div>
+        </div>
+        <div class="home-card" onclick="navArea('planner',document.querySelector('.sidebar .nav:nth-child(4)'))">
+          <div class="home-card-icon" style="background:#EEEDFE"><i class="ti ti-calendar-event" style="color:#534AB7"></i></div>
+          <div class="home-card-body">
+            <div class="home-card-title">Daily Planner</div>
+            <div class="home-card-desc">Goals, tasks, events, habits, and daily scheduling</div>
+            <div class="home-card-stats" id="home-planner-stats"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════ FINANCE AREA ════════════════════════════════════════ -->
+    <div class="area" id="area-finance">
 
     <!-- ══ DASHBOARD ══ -->
     <div class="section active" id="sec-dashboard">
       <!-- Row 1: 5 metric cards -->
       <div class="metrics metrics-5" id="dashboard-metrics-row1">
         <div class="mc"><div class="mc-label">Income</div><div class="mc-value pos" id="mc-income">—</div><div class="mc-sub" id="mc-income-sub">Loading…</div></div>
-        <div class="mc"><div class="mc-label">Allowable Expenses</div><div class="mc-value neg" id="mc-taxable-exp">—</div><div class="mc-sub" id="mc-taxable-exp-sub"></div></div>
         <div class="mc"><div class="mc-label">Tax Liability</div><div class="mc-value" id="mc-tax">—</div><div class="mc-sub" id="mc-tax-sub"></div></div>
-        <div class="mc"><div class="mc-label">Accrued Expenses</div><div class="mc-value neg" id="mc-exp-used">—</div><div class="mc-sub" id="mc-exp-used-sub"></div></div>
-        <div class="mc"><div class="mc-label">Saving (Used)</div><div class="mc-value" id="mc-sav-used">—</div><div class="mc-sub" id="mc-sav-used-sub"></div></div>
+        <div class="mc"><div class="mc-label">Allocated Tax Paid</div><div class="mc-value neg" id="mc-tax-paid">—</div><div class="mc-sub" id="mc-tax-paid-sub"></div></div>
+        <div class="mc"><div class="mc-label">Allowable Expenses</div><div class="mc-value neg" id="mc-taxable-exp">—</div><div class="mc-sub" id="mc-taxable-exp-sub"></div></div>
+        <div class="mc"><div class="mc-label">Cash Outflow</div><div class="mc-value neg" id="mc-cash-outflow">—</div><div class="mc-sub" id="mc-cash-outflow-sub"></div></div>
       </div>
 
       <!-- Row 2: 5 metric cards -->
       <div class="metrics metrics-5" id="dashboard-metrics-row2">
-        <div class="mc"><div class="mc-label">Allocated Tax Paid</div><div class="mc-value neg" id="mc-tax-paid">—</div><div class="mc-sub" id="mc-tax-paid-sub"></div></div>
         <div class="mc"><div class="mc-label">Expenses Paid</div><div class="mc-value neg" id="mc-exp-paid">—</div><div class="mc-sub" id="mc-exp-paid-sub"></div></div>
-        <div class="mc"><div class="mc-label">Cash Outflow</div><div class="mc-value neg" id="mc-cash-outflow">—</div><div class="mc-sub" id="mc-cash-outflow-sub"></div></div>
+        <div class="mc"><div class="mc-label">Accrued Expenses</div><div class="mc-value neg" id="mc-exp-used">—</div><div class="mc-sub" id="mc-exp-used-sub"></div></div>
         <div class="mc"><div class="mc-label">Saving (Paid)</div><div class="mc-value" id="mc-sav-paid">—</div><div class="mc-sub" id="mc-sav-paid-sub"></div></div>
+        <div class="mc"><div class="mc-label">Saving (Used)</div><div class="mc-value" id="mc-sav-used">—</div><div class="mc-sub" id="mc-sav-used-sub"></div></div>
         <div class="mc"><div class="mc-label">Net Cash Flow</div><div class="mc-value pos" id="mc-cashflow">—</div><div class="mc-sub" id="mc-cashflow-sub"></div></div>
       </div>
 
@@ -576,10 +649,6 @@
             <span class="custom-period-sep">to</span>
             <input type="date" id="report-custom-end" class="custom-date-input">
           </div>
-          <select id="report-group-filter"><option>All groups</option><option>Living</option><option>TaxPayment</option></select>
-          <select id="report-cat-filter"><option>All categories</option></select>
-          <select id="report-classification-filter"><option>All classifications</option></select>
-          <div style="flex:1"></div>
           <div class="seg-control" style="margin-bottom:0">
             <button class="seg-btn active" onclick="setReportTaxFilter('ex-tax',this)">Exclude Tax</button>
             <button class="seg-btn" onclick="setReportTaxFilter('with-liability',this)">With Tax Liability</button>
@@ -588,6 +657,22 @@
           <div class="seg-control" style="margin-bottom:0">
             <button class="seg-btn active" onclick="setReportBasis('paid',this)">Paid</button>
             <button class="seg-btn" onclick="setReportBasis('used',this)">Used</button>
+          </div>
+          <div style="flex:1"></div>
+          <div class="searchable-select report-searchable-select" id="report-group-filter-wrap" style="min-width:150px">
+            <input type="text" class="searchable-select-input" id="report-group-filter-input" placeholder="Search groups…" autocomplete="off" readonly>
+            <select id="report-group-filter" style="display:none"><option>All groups</option><option>Living</option><option>TaxPayment</option></select>
+            <div class="searchable-select-dropdown" id="report-group-filter-dropdown"></div>
+          </div>
+          <div class="searchable-select report-searchable-select" id="report-cat-filter-wrap" style="min-width:190px">
+            <input type="text" class="searchable-select-input" id="report-cat-filter-input" placeholder="Search categories…" autocomplete="off" readonly>
+            <select id="report-cat-filter" style="display:none"><option>All categories</option></select>
+            <div class="searchable-select-dropdown" id="report-cat-filter-dropdown"></div>
+          </div>
+          <div class="searchable-select report-searchable-select" id="report-classification-filter-wrap" style="min-width:170px">
+            <input type="text" class="searchable-select-input" id="report-classification-filter-input" placeholder="Search classifications…" autocomplete="off" readonly>
+            <select id="report-classification-filter" style="display:none"><option>All classifications</option></select>
+            <div class="searchable-select-dropdown" id="report-classification-filter-dropdown"></div>
           </div>
         </div>
       </div>
@@ -719,6 +804,306 @@
         </div>
       </div>
     </div>
+    </div><!-- /area-finance -->
+
+    <!-- ════ PLANNER AREA (exact port from daily-planner.html) ════ -->
+    <div class="area" id="area-planner">
+      <div id="planner-topbar">
+        <div class="topbar-left">
+          <span class="page-title" id="planner-page-title">Daily Schedule</span>
+          <div class="tab-bar" id="tab-bar-tasks" style="display:none">
+            <button class="tab" onclick="switchTab('goals',this)">Goals</button>
+            <button class="tab active" onclick="switchTab('todos',this)">To-do</button>
+            <button class="tab" onclick="switchTab('events',this)">Events</button>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <div class="summary-pills" id="summary-pills"></div>
+          <div class="habit-topbar-tools" id="habit-topbar-tools">
+            <div class="habit-view-toggle">
+              <button class="seg-btn active" id="habit-btn-table" onclick="switchHabitView('table',this)">Table</button>
+              <button class="seg-btn" id="habit-btn-cal" onclick="switchHabitView('calendar',this)">Calendar</button>
+            </div>
+            <div class="habit-month-controls" id="habit-month-controls"></div>
+            <button class="edit-btn" id="habit-edit-btn" onclick="toggleHabitEditMode()"><i class="ti ti-pencil" style="font-size:12px"></i> Edit</button>
+            <button class="edit-btn" id="habit-cat-btn" onclick="openHabitCategoryModal()" style="display:none"><i class="ti ti-category" style="font-size:12px"></i> Categories</button>
+          </div>
+          <button class="settings-btn" onclick="openTagManagerModal()">Tags</button>
+          <button class="btn-primary" id="topbar-add-btn" style="display:none" onclick="topbarAdd()">+ Add to-do</button>
+        </div>
+      </div>
+
+      <div class="planner-content">
+        <div id="schema-notice"></div>
+
+        <!-- SCHEDULE VIEW -->
+        <div class="view active" id="sec-schedule">
+          <div class="card" id="selected-date-events-card" style="display:none">
+            <div class="card-head">
+              <span class="card-title"><i class="ti ti-calendar-event" style="font-size:12px"></i> Events on selected date</span>
+              <span id="selected-date-events-meta" style="font-size:10.5px;color:#8492a6"></span>
+            </div>
+            <div class="event-day-list" id="selected-date-events-list"></div>
+          </div>
+
+          <div class="row2">
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title"><i class="ti ti-clock" style="font-size:12px"></i> Today's to-do</span>
+                <span style="font-size:10.5px;color:#8492a6">Focused for selected date</span>
+              </div>
+              <div class="tbl-wrap"><table class="dt">
+                <thead><tr>
+                  <th class="c"></th>
+                  <th style="width:72px">Cat</th>
+                  <th>Item</th>
+                  <th style="width:92px">Move</th>
+                  <th class="c" title="Highlight"><svg width="11" height="11" viewBox="0 0 24 24" fill="#EF9F27" stroke="#EF9F27" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></th>
+                </tr></thead>
+                <tbody id="today-todo-tbody"></tbody>
+              </table></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title"><i class="ti ti-check" style="font-size:12px"></i> Done today</span>
+                <span style="font-size:10.5px;color:#8492a6">Completed on selected date</span>
+              </div>
+              <div class="tbl-wrap"><table class="dt">
+                <thead><tr>
+                  <th class="c"></th>
+                  <th style="width:72px">Cat</th>
+                  <th>Item</th>
+                  <th style="width:92px">Move</th>
+                </tr></thead>
+                <tbody id="today-done-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title"><i class="ti ti-clock" style="font-size:12px"></i> Schedule log</span>
+              <div style="display:flex;gap:9px;align-items:center">
+                <label class="tog-wrap" onclick="toggleAutoTime()">
+                  <div id="at-track" class="tog-track" style="background:#534AB7">
+                    <div id="at-knob" class="tog-knob" style="left:14px"></div>
+                  </div>
+                  Auto time
+                </label>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button class="btn-ghost" onclick="shiftScheduleDate(-1)"><i class="ti ti-chevron-left"></i></button>
+                  <input type="date" id="sched-date" style="padding:4px 8px;border:1px solid #dde1ec;border-radius:6px;font-size:12px;color:#1a1f2e;outline:none;font-family:inherit" onchange="handleScheduleDateChange()" />
+                  <button class="btn-ghost" onclick="shiftScheduleDate(1)"><i class="ti ti-chevron-right"></i></button>
+                </div>
+                <button class="btn-secondary" onclick="addSlot()">+ Entry</button>
+              </div>
+            </div>
+            <div class="sched-hdr">
+              <div class="sh">Time</div>
+              <div class="sh f1">Activity</div>
+              <div class="sh w150">Note</div>
+              <div class="sh w30"></div>
+            </div>
+            <div id="sched-grid"></div>
+          </div>
+        </div>
+
+        <!-- TASKS & EVENTS VIEW -->
+        <div class="view" id="sec-tasks">
+          <div class="view" id="view-goals">
+            <div class="metrics m4">
+              <div class="mc"><div class="mc-label">Active</div><div class="mc-value purple" id="ct-active">0</div><div class="mc-sub">in progress</div></div>
+              <div class="mc"><div class="mc-label">Completed</div><div class="mc-value" id="ct-done">0</div><div class="mc-sub">finished</div></div>
+              <div class="mc"><div class="mc-label">Cancelled</div><div class="mc-value" id="ct-cancelled">0</div><div class="mc-sub">parked</div></div>
+              <div class="mc"><div class="mc-label">Total</div><div class="mc-value" id="ct-total">0</div></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;border:1px solid #e0e4ef;border-radius:7px;overflow:hidden;width:fit-content">
+                <button class="seg-btn active" onclick="switchGoalTab('pending',this)">Pending</button>
+                <button class="seg-btn" onclick="switchGoalTab('done',this)" style="border-left:1px solid #e0e4ef">Completed</button>
+                <button class="seg-btn" onclick="switchGoalTab('cancelled',this)" style="border-left:1px solid #e0e4ef">Cancelled</button>
+              </div>
+              <div class="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input id="goal-search" type="text" placeholder="Search goals" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" oninput="updatePlannerFilter('goals','search',this.value)">
+                <select id="goal-area-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('goals','area',this.value)">
+                  <option value="">All areas</option>
+                </select>
+                <button class="btn-secondary" onclick="resetPlannerFilter('goals')"><i class="ti ti-x"></i>Clear</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">Core work goals</span>
+                <button class="btn-primary" onclick="openModal('coretask')">+ Add goal</button>
+              </div>
+              <div class="tbl-wrap"><table class="dt" id="goals-pending-card">
+                <thead><tr><th class="c"></th><th data-sort-group="goals" data-sort-field="title" data-sort-label="Goal" onclick="togglePlannerSort('goals','title')" style="cursor:pointer">Goal</th><th class="c" data-sort-group="goals" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('goals','important')" style="cursor:pointer" title="Important"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th><th class="c" data-sort-group="goals" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('goals','urgent')" style="cursor:pointer" title="Urgent"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th><th style="width:150px;cursor:pointer" data-sort-group="goals" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('goals','area')">Area</th><th style="width:120px;cursor:pointer" data-sort-group="goals" data-sort-field="target_completion_date" data-sort-label="Target" onclick="togglePlannerSort('goals','target_completion_date')">Target</th><th style="width:90px;cursor:pointer" data-sort-group="goals" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('goals','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="goals-tbody"></tbody>
+              </table></div>
+              <div class="tbl-wrap" id="goals-done-card" style="display:none"><table class="dt">
+                <thead><tr><th class="c"></th><th data-sort-group="goals" data-sort-field="title" data-sort-label="Goal" onclick="togglePlannerSort('goals','title')" style="cursor:pointer">Goal</th><th class="c" data-sort-group="goals" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('goals','important')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th><th class="c" data-sort-group="goals" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('goals','urgent')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th><th style="width:150px;cursor:pointer" data-sort-group="goals" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('goals','area')">Area</th><th style="width:120px;cursor:pointer" data-sort-group="goals" data-sort-field="target_completion_date" data-sort-label="Target" onclick="togglePlannerSort('goals','target_completion_date')">Target</th><th style="width:90px;cursor:pointer" data-sort-group="goals" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('goals','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="goals-done-tbody"></tbody>
+              </table></div>
+              <div class="tbl-wrap" id="goals-cancelled-card" style="display:none"><table class="dt">
+                <thead><tr><th class="c"></th><th data-sort-group="goals" data-sort-field="title" data-sort-label="Goal" onclick="togglePlannerSort('goals','title')" style="cursor:pointer">Goal</th><th class="c" data-sort-group="goals" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('goals','important')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th><th class="c" data-sort-group="goals" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('goals','urgent')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th><th style="width:150px;cursor:pointer" data-sort-group="goals" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('goals','area')">Area</th><th style="width:120px;cursor:pointer" data-sort-group="goals" data-sort-field="target_completion_date" data-sort-label="Target" onclick="togglePlannerSort('goals','target_completion_date')">Target</th><th style="width:90px;cursor:pointer" data-sort-group="goals" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('goals','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="goals-cancelled-tbody"></tbody>
+              </table></div>
+              <div class="add-row" id="goals-add-row">
+                <input class="f1" id="ct-name" placeholder="Goal name" onkeydown="if(event.key==='Enter')addCoreTask()" />
+                <select style="width:155px" id="ct-goal"><option value="">— Area —</option></select>
+                <input style="width:140px" id="ct-target-date" type="date" />
+                <button class="btn-primary" onclick="addCoreTask()">Add</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="view active" id="view-todos">
+            <div class="metrics m4">
+              <div class="mc"><div class="mc-label">To do</div><div class="mc-value purple" id="td-pending">0</div></div>
+              <div class="mc"><div class="mc-label">Done</div><div class="mc-value" id="td-done">0</div></div>
+              <div class="mc"><div class="mc-label">Overdue</div><div class="mc-value red" id="td-overdue">0</div></div>
+              <div class="mc"><div class="mc-label">Total</div><div class="mc-value" id="td-total">0</div></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;border:1px solid #e0e4ef;border-radius:7px;overflow:hidden;width:fit-content">
+                <button class="seg-btn active" onclick="switchTodoTab('pending',this)">Pending</button>
+                <button class="seg-btn" onclick="switchTodoTab('done',this)" style="border-left:1px solid #e0e4ef">Completed</button>
+                <button class="seg-btn" onclick="switchTodoTab('cancelled',this)" style="border-left:1px solid #e0e4ef">Cancelled</button>
+              </div>
+              <div class="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input id="td-search" type="text" placeholder="Search to-dos" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" oninput="updatePlannerFilter('todos','search',this.value)">
+                <select id="td-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('todos','category',this.value)">
+                  <option value="">All categories</option>
+                </select>
+                <select id="td-area-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('todos','area',this.value)">
+                  <option value="">All areas</option>
+                </select>
+                <button class="btn-secondary" onclick="resetPlannerFilter('todos')"><i class="ti ti-x"></i>Clear</button>
+              </div>
+            </div>
+            <div class="card" id="card-pending">
+              <div class="card-head">
+                <span class="card-title">Pending</span>
+                <button class="btn-primary" onclick="openModal('todo')">+ Add item</button>
+              </div>
+              <div class="tbl-wrap"><table class="dt">
+                <thead><tr>
+                  <th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th>
+                  <th class="c" style="cursor:pointer" data-sort-group="todos" data-sort-field="today" data-sort-label="Today" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' onclick="togglePlannerSort('todos','today')" title="Today"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></th>
+                  <th class="c" style="cursor:pointer" data-sort-group="todos" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('todos','important')" title="Important"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th>
+                  <th class="c" style="cursor:pointer" data-sort-group="todos" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('todos','urgent')" title="Urgent"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th>
+                  <th style="width:120px;cursor:pointer" data-sort-group="todos" data-sort-field="goal" data-sort-label="Linked goal" onclick="togglePlannerSort('todos','goal')">Linked goal</th><th style="width:100px;cursor:pointer" data-sort-group="todos" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('todos','area')">Area</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th>
+                  <th style="width:85px">Move</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th>
+                </tr></thead>
+                <tbody id="todos-pending-tbody"></tbody>
+              </table></div>
+              <div class="add-row">
+                <input class="f1" id="td-name" placeholder="To-do item" onkeydown="if(event.key==='Enter')addTodo()" />
+                <select style="width:90px" id="td-cat"></select>
+                <select style="width:120px" id="td-repeat" onchange="syncInlineTaskRecurrenceFields()">
+                  <option value="none">No repeat</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <select style="width:120px;display:none" id="td-weekday">
+                  <option value="0">Monday</option>
+                  <option value="1">Tuesday</option>
+                  <option value="2">Wednesday</option>
+                  <option value="3">Thursday</option>
+                  <option value="4">Friday</option>
+                  <option value="5">Saturday</option>
+                  <option value="6">Sunday</option>
+                </select>
+                <select style="width:120px;display:none" id="td-monthday">
+                  <option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option>
+                  <option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option>
+                  <option value="9">9th</option><option value="10">10th</option><option value="11">11th</option><option value="12">12th</option>
+                  <option value="13">13th</option><option value="14">14th</option><option value="15">15th</option><option value="16">16th</option>
+                  <option value="17">17th</option><option value="18">18th</option><option value="19">19th</option><option value="20">20th</option>
+                  <option value="21">21st</option><option value="22">22nd</option><option value="23">23rd</option><option value="24">24th</option>
+                  <option value="25">25th</option><option value="26">26th</option><option value="27">27th</option><option value="28">28th</option>
+                  <option value="29">29th</option><option value="30">30th</option><option value="31">31st</option>
+                </select>
+                <input style="width:120px" id="td-deadline" type="date" />
+                <button class="btn-primary" onclick="addTodo()">Add</button>
+              </div>
+            </div>
+            <div class="card" id="card-done" style="display:none">
+              <div class="card-head"><span class="card-title">Completed</span></div>
+              <div class="tbl-wrap"><table class="dt">
+                <thead><tr><th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th><th style="width:100px;cursor:pointer" data-sort-group="todos" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('todos','area')">Area</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="completed_at" data-sort-label="Completed" onclick="togglePlannerSort('todos','completed_at')">Completed</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="todos-done-tbody"></tbody>
+              </table></div>
+            </div>
+            <div class="card" id="card-cancelled" style="display:none">
+              <div class="card-head"><span class="card-title">Cancelled</span></div>
+              <div class="tbl-wrap"><table class="dt">
+                <thead><tr><th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th><th style="width:100px;cursor:pointer" data-sort-group="todos" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('todos','area')">Area</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="todos-cancelled-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+
+          <div class="view" id="view-events">
+            <div class="metrics m4">
+              <div class="mc"><div class="mc-label">Upcoming</div><div class="mc-value purple" id="ev-upcoming">0</div></div>
+              <div class="mc"><div class="mc-label">Done</div><div class="mc-value" id="ev-done">0</div></div>
+              <div class="mc"><div class="mc-label">Cancelled</div><div class="mc-value" id="ev-cancelled">0</div></div>
+              <div class="mc"><div class="mc-label">Total</div><div class="mc-value" id="ev-total">0</div></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;border:1px solid #e0e4ef;border-radius:7px;overflow:hidden;width:fit-content">
+                <button class="seg-btn active" onclick="switchEventTab('pending',this)">Pending</button>
+                <button class="seg-btn" onclick="switchEventTab('done',this)" style="border-left:1px solid #e0e4ef">Completed</button>
+                <button class="seg-btn" onclick="switchEventTab('cancelled',this)" style="border-left:1px solid #e0e4ef">Cancelled</button>
+              </div>
+              <div class="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input id="ev-search" type="text" placeholder="Search events" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" oninput="updatePlannerFilter('events','search',this.value)">
+                <select id="ev-cat-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('events','category',this.value)">
+                  <option value="">All categories</option>
+                </select>
+                <button class="btn-secondary" onclick="resetPlannerFilter('events')"><i class="ti ti-x"></i>Clear</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">All events</span>
+                <button class="btn-primary" onclick="openModal('event')">+ Add event</button>
+              </div>
+              <div class="tbl-wrap" id="events-pending-card"><table class="dt events-table">
+                <thead><tr><th class="c"></th><th style="cursor:pointer" data-sort-group="events" data-sort-field="title" data-sort-label="Event" onclick="togglePlannerSort('events','title')">Event</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="event_date" data-sort-label="Date" onclick="togglePlannerSort('events','event_date')">Date</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="event_time" data-sort-label="Time" onclick="togglePlannerSort('events','event_time')">Time</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="venue" data-sort-label="Venue" onclick="togglePlannerSort('events','venue')">Venue</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="category" data-sort-label="Category" onclick="togglePlannerSort('events','category')">Category</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="events-tbody"></tbody>
+              </table></div>
+              <div class="tbl-wrap" id="events-done-card" style="display:none"><table class="dt events-table">
+                <thead><tr><th class="c"></th><th style="cursor:pointer" data-sort-group="events" data-sort-field="title" data-sort-label="Event" onclick="togglePlannerSort('events','title')">Event</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="event_date" data-sort-label="Date" onclick="togglePlannerSort('events','event_date')">Date</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="event_time" data-sort-label="Time" onclick="togglePlannerSort('events','event_time')">Time</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="venue" data-sort-label="Venue" onclick="togglePlannerSort('events','venue')">Venue</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="category" data-sort-label="Category" onclick="togglePlannerSort('events','category')">Category</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="events-done-tbody"></tbody>
+              </table></div>
+              <div class="tbl-wrap" id="events-cancelled-card" style="display:none"><table class="dt events-table">
+                <thead><tr><th class="c"></th><th style="cursor:pointer" data-sort-group="events" data-sort-field="title" data-sort-label="Event" onclick="togglePlannerSort('events','title')">Event</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="event_date" data-sort-label="Date" onclick="togglePlannerSort('events','event_date')">Date</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="event_time" data-sort-label="Time" onclick="togglePlannerSort('events','event_time')">Time</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="venue" data-sort-label="Venue" onclick="togglePlannerSort('events','venue')">Venue</th><th style="cursor:pointer" data-sort-group="events" data-sort-field="category" data-sort-label="Category" onclick="togglePlannerSort('events','category')">Category</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <tbody id="events-cancelled-tbody"></tbody>
+              </table></div>
+              <div class="add-row" id="events-add-row">
+                <input class="f1" id="ev-name" placeholder="Event name" onkeydown="if(event.key==='Enter')addEvent()" />
+                <input style="width:120px" id="ev-date" type="date" />
+                <input style="width:100px" id="ev-time" type="time" />
+                <input style="width:95px" id="ev-venue" placeholder="Venue" />
+                <button class="btn-primary" onclick="addEvent()">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HABIT TRACKER VIEW -->
+        <div class="view" id="sec-habits">
+          <div class="habit-shell">
+            <div id="habit-schema-notice"></div>
+            <div class="metrics m4" id="habit-metrics-row"></div>
+            <div id="habit-main-view"></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /area-planner -->
 
     <!-- ══ IMPORT ══ -->
     <div class="section" id="sec-import">
@@ -863,9 +1248,61 @@
 </div><!-- /main -->
 </div><!-- /app -->
 
-<script src="/js/api.js?v=20260627-55"></script>
-<script src="/js/utils.js?v=20260627-55"></script>
-<script src="/js/dashboard.js?v=20260628-01"></script>
-<script src="/js/app.js?v=20260628-01"></script>
+<!-- Planner modal -->
+<div class="modal-bg" id="modal-bg" onclick="bgClose(event)">
+  <div class="modal">
+    <div class="modal-head"><span id="modal-title">Add</span><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="modal-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-panel-head">
+    <div class="debug-panel-title">Planner insert debug</div>
+    <button class="modal-close" type="button" onclick="hidePlannerInsertDebug()">&times;</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="fg" style="margin:0"><label>Context</label><input id="debug-context" readonly></div>
+    <div class="fg" style="margin:0"><label>Payload</label><pre id="debug-payload"></pre></div>
+    <div class="fg" style="margin:0"><label>Error</label><pre id="debug-error"></pre></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Setup credentials screen -->
+<div class="setup-screen" id="setup-overlay" style="display:none">
+  <div class="setup-card">
+    <h2><i class="ti ti-receipt-2" style="font-size:20px;color:#5B6C9E"></i> Connect to Supabase</h2>
+    <div class="setup-sub">Enter your Supabase project credentials to get started.<br>Find them in your Supabase dashboard under <strong>Settings &rarr; Database</strong>.</div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Project URL</label>
+      <input id="setup-url" type="url" placeholder="https://your-project.supabase.co" autocomplete="off">
+      <div class="setup-hint">e.g. https://abcdefg.supabase.co</div>
+    </div>
+    <div class="form-group" style="margin-bottom:0">
+      <label>Database Password</label>
+      <input id="setup-password" type="password" placeholder="Your database password" autocomplete="off">
+      <div class="setup-hint">The password you set when creating the Supabase project</div>
+    </div>
+    <div class="setup-error" id="setup-error"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:18px">
+      <button class="btn-primary" id="setup-save-btn" onclick="submitSetupCredentials()"><i class="ti ti-plug-connected"></i> Connect</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js?v=20260629-01"></script>
+<script src="/js/utils.js?v=20260629-01"></script>
+<script src="/js/dashboard.js?v=20260630-02"></script>
+<script src="/js/planner-utils.js?v=20260629-01"></script>
+<script src="/js/planner.js?v=20260702-01"></script>
+<script src="/js/habits.js?v=20260629-01"></script>
+<script src="/js/home.js?v=20260629-01"></script>
+<script src="/js/app.js?v=20260630-01"></script>
 </body>
 </html>

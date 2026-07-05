@@ -336,10 +336,11 @@ def test_ensure_connection_rolls_back_aborted_transaction(
 
 def test_missing_config_raises_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SUPABASE_HOST", raising=False)
-    import streamlit as st
-    monkeypatch.setattr(st, "secrets", {}, raising=False)
 
-    with pytest.raises(db.DatabaseConnectionError):
+    with pytest.raises(
+        db.DatabaseConnectionError,
+        match="Set the SUPABASE_\\* environment variables",
+    ):
         db.get_connection()
 
 

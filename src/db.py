@@ -371,24 +371,19 @@ def _adjust_finance_snapshot_balance(
 
 def _get_supabase_config() -> dict[str, Any]:
     env_host = os.environ.get("SUPABASE_HOST")
-    if env_host:
-        cfg = {
-            "host": env_host,
-            "port": int(os.environ.get("SUPABASE_PORT", "5432")),
-            "dbname": os.environ.get("SUPABASE_DBNAME", ""),
-            "user": os.environ.get("SUPABASE_USER", ""),
-            "password": os.environ.get("SUPABASE_PASSWORD", ""),
-            "sslmode": os.environ.get("SUPABASE_SSLMODE", "require"),
-        }
-    else:
-        try:
-            import streamlit as st
-            cfg = dict(st.secrets["supabase"])
-        except Exception as exc:
-            raise DatabaseConnectionError(
-                "Database credentials not found. Set SUPABASE_HOST env var "
-                "or add them to .streamlit/secrets.toml."
-            ) from exc
+    if not env_host:
+        raise DatabaseConnectionError(
+            "Database credentials not found. Set the SUPABASE_* environment variables."
+        )
+
+    cfg = {
+        "host": env_host,
+        "port": int(os.environ.get("SUPABASE_PORT", "5432")),
+        "dbname": os.environ.get("SUPABASE_DBNAME", ""),
+        "user": os.environ.get("SUPABASE_USER", ""),
+        "password": os.environ.get("SUPABASE_PASSWORD", ""),
+        "sslmode": os.environ.get("SUPABASE_SSLMODE", "require"),
+    }
 
     required_keys = ("host", "port", "dbname", "user", "password")
     missing_keys = [key for key in required_keys if not cfg.get(key)]
@@ -418,7 +413,7 @@ def _create_connection() -> PGConnection:
     except OperationalError as exc:
         raise DatabaseConnectionError(
             "Unable to connect to Supabase PostgreSQL. Check the host, port, "
-            "database name, user, password, and SSL settings in Streamlit secrets."
+            "database name, user, password, and SSL environment settings."
         ) from exc
 
 

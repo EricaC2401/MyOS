@@ -109,19 +109,18 @@ function renderDashboardMetrics(m) {
   ncfEl.className = 'mc-value ' + (ncf >= 0 ? 'pos' : 'neg');
   document.getElementById('mc-cashflow-sub').textContent = pctOfIncome(m.net_cash_flow_gbp, income);
 
-  // Row 2
+  const savUsed = parseFloat(m.saving_used_gbp) || 0;
+  const savPaid = parseFloat(m.saving_paid_gbp) || 0;
   document.getElementById('mc-exp-used').textContent = '£' + fmtAmt(m.expense_used_ex_tax_gbp);
   document.getElementById('mc-exp-used-sub').textContent = pctOfIncome(m.expense_used_ex_tax_gbp, income);
   document.getElementById('mc-exp-paid').textContent = '£' + fmtAmt(m.expense_paid_ex_tax_gbp);
   document.getElementById('mc-exp-paid-sub').textContent = pctOfIncome(m.expense_paid_ex_tax_gbp, income);
 
-  const savUsed = parseFloat(m.saving_used_gbp) || 0;
   const savUsedEl = document.getElementById('mc-sav-used');
   savUsedEl.textContent = '£' + fmtAmt(m.saving_used_gbp);
   savUsedEl.className = 'mc-value ' + (savUsed >= 0 ? 'pos' : 'neg');
   document.getElementById('mc-sav-used-sub').textContent = savingsRate(m.saving_used_gbp, income);
 
-  const savPaid = parseFloat(m.saving_paid_gbp) || 0;
   const savPaidEl = document.getElementById('mc-sav-paid');
   savPaidEl.textContent = '£' + fmtAmt(m.saving_paid_gbp);
   savPaidEl.className = 'mc-value ' + (savPaid >= 0 ? 'pos' : 'neg');

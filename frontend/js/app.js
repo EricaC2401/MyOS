@@ -1,21 +1,22 @@
 // Navigation + period management + initialization
 
 const pages = {
-  dashboard: { title: 'Dashboard', action: 'Add expense', pills: true },
-  expenses:  { title: 'Expenses', action: 'Add expense', pills: false },
-  income:    { title: 'Income', action: 'Add income', pills: false },
-  tax:       { title: 'Tax', action: 'Add tax due', pills: false },
-  finance:   { title: 'Finance snapshot', action: '', pills: false },
-  recurring: { title: 'Recurring', action: 'New template', pills: false },
-  reports:   { title: 'Expense Analytics', action: '', pills: false },
-  import:    { title: 'Import', action: '', pills: false },
-  export:    { title: 'Export', action: '', pills: false },
-  'monthly-overview': { title: 'Monthly overview', action: '', pills: false },
-  'data-notes': { title: 'Data caveats', action: '', pills: false },
-  settings:  { title: 'Settings', action: '', pills: false },
+  dashboard: { title: 'Dashboard', pills: true },
+  expenses:  { title: 'Expenses', pills: false },
+  income:    { title: 'Income', pills: false },
+  tax:       { title: 'Tax', pills: false },
+  finance:   { title: 'Finance Snapshot', pills: false },
+  recurring: { title: 'Recurring', pills: false },
+  reports:   { title: 'Expense Analytics', pills: false },
+  import:    { title: 'Import', pills: false },
+  export:    { title: 'Export', pills: false },
+  'monthly-overview': { title: 'Monthly Overview', pills: false },
+  'data-notes': { title: 'Data Caveats', pills: false },
+  settings:  { title: 'Settings', pills: false },
 };
 
 const TAX_DEFAULT_START_DATE = '2021-04-01';
+const DEFAULT_EXPENSE_PAYMENT_METHOD = 'Monzo Current';
 
 let currentPage = 'dashboard';
 let dashboardBasis = 'paid';
@@ -84,6 +85,7 @@ let reportCategoryChart = null;
 let reportLivingChart = null;
 let reportTrendChart = null;
 let currentReportsData = null;
+let reportsLoadSeq = 0;
 let reportPeriodMode = 'Month';
 let reportPeriodOptions = [];
 const reportSelectedPeriodKeys = {};
@@ -91,6 +93,35 @@ let reportCustomPeriod = {
   start: toISODate(TRACKING_START_DATE),
   end: toISODate(new Date()),
 };
+const reportSearchableFilterConfigs = [
+  {
+    selectId: 'report-group-filter',
+    wrapId: 'report-group-filter-wrap',
+    inputId: 'report-group-filter-input',
+    dropdownId: 'report-group-filter-dropdown',
+    searchId: 'report-group-filter-search',
+    searchPlaceholder: 'Search groups…',
+    emptyMessage: 'No groups found',
+  },
+  {
+    selectId: 'report-cat-filter',
+    wrapId: 'report-cat-filter-wrap',
+    inputId: 'report-cat-filter-input',
+    dropdownId: 'report-cat-filter-dropdown',
+    searchId: 'report-cat-filter-search',
+    searchPlaceholder: 'Search categories…',
+    emptyMessage: 'No categories found',
+  },
+  {
+    selectId: 'report-classification-filter',
+    wrapId: 'report-classification-filter-wrap',
+    inputId: 'report-classification-filter-input',
+    dropdownId: 'report-classification-filter-dropdown',
+    searchId: 'report-classification-filter-search',
+    searchPlaceholder: 'Search classifications…',
+    emptyMessage: 'No classifications found',
+  },
+];
 
 function shadeColor(hex, lightness) {
   let r = parseInt(hex.slice(1, 3), 16);
@@ -104,6 +135,120 @@ function shadeColor(hex, lightness) {
 
 function normalizeText(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function syncReportSearchableFilterInput(selectId) {
+  const config = reportSearchableFilterConfigs.find(entry => entry.selectId === selectId);
+  if (!config) return;
+  const select = document.getElementById(config.selectId);
+  const input = document.getElementById(config.inputId);
+  if (!select || !input) return;
+  input.value = select.value || select.options[0]?.textContent || '';
+}
+
+function syncAllReportSearchableFilterInputs() {
+  reportSearchableFilterConfigs.forEach(config => syncReportSearchableFilterInput(config.selectId));
+}
+
+function closeReportSearchableDropdowns(exceptDropdownId = '') {
+  reportSearchableFilterConfigs.forEach(config => {
+    if (config.dropdownId !== exceptDropdownId) {
+      document.getElementById(config.dropdownId)?.classList.remove('open');
+    }
+  });
+}
+
+function buildReportSearchableDropdown(config, filter = '') {
+  const select = document.getElementById(config.selectId);
+  const dropdown = document.getElementById(config.dropdownId);
+  const input = document.getElementById(config.inputId);
+  if (!select || !dropdown || !input) return;
+
+  const options = [...select.options].map(option => option.value || option.textContent || '').filter(Boolean);
+  const currentValue = select.value || options[0] || '';
+  const needle = filter.trim().toLowerCase();
+  const filteredOptions = options.filter(option => !needle || option.toLowerCase().includes(needle));
+
+  let html = `<div class="searchable-select-search" style="position:relative">
+    <i class="ti ti-search"></i>
+    <input type="text" placeholder="${escapeHtml(config.searchPlaceholder)}" id="${config.searchId}" value="${escapeHtml(filter)}">
+  </div>`;
+
+  if (!filteredOptions.length) {
+    html += `<div class="searchable-select-empty">${escapeHtml(config.emptyMessage)}</div>`;
+  } else {
+    filteredOptions.forEach(option => {
+      const selected = option === currentValue ? ' selected' : '';
+      html += `<div class="searchable-select-option${selected}" data-value="${escapeHtml(option)}">${escapeHtml(option)}</div>`;
+    });
+  }
+
+  dropdown.innerHTML = html;
+
+  dropdown.querySelectorAll('.searchable-select-option').forEach(optionEl => {
+    optionEl.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const nextValue = optionEl.dataset.value || '';
+      select.value = nextValue;
+      syncReportSearchableFilterInput(config.selectId);
+      dropdown.classList.remove('open');
+      select.dispatchEvent(new Event('change'));
+    });
+  });
+
+  const searchInput = dropdown.querySelector(`#${config.searchId}`);
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      buildReportSearchableDropdown(config, searchInput.value);
+      const nextSearchInput = dropdown.querySelector(`#${config.searchId}`);
+      if (nextSearchInput) {
+        nextSearchInput.focus();
+        nextSearchInput.selectionStart = nextSearchInput.selectionEnd = nextSearchInput.value.length;
+      }
+    });
+    searchInput.addEventListener('mousedown', e => e.stopPropagation());
+  }
+}
+
+function initializeReportSearchableFilters() {
+  reportSearchableFilterConfigs.forEach(config => {
+    const wrap = document.getElementById(config.wrapId);
+    const input = document.getElementById(config.inputId);
+    const dropdown = document.getElementById(config.dropdownId);
+    if (!wrap || !input || !dropdown) return;
+
+    input.addEventListener('click', () => {
+      const isOpen = dropdown.classList.contains('open');
+      closeReportSearchableDropdowns();
+      if (isOpen) {
+        dropdown.classList.remove('open');
+        return;
+      }
+      buildReportSearchableDropdown(config);
+      dropdown.classList.add('open');
+      setTimeout(() => {
+        const searchInput = dropdown.querySelector(`#${config.searchId}`);
+        if (searchInput) searchInput.focus();
+      }, 0);
+    });
+
+    document.addEventListener('mousedown', e => {
+      if (!wrap.contains(e.target)) {
+        dropdown.classList.remove('open');
+      }
+    });
+  });
+
+  syncAllReportSearchableFilterInputs();
 }
 
 function getFinanceSortValue(entry, key) {
@@ -1924,7 +2069,7 @@ function clearExpenseForm() {
   populateExpenseCategoryOptions(false);
   document.getElementById('exp-gbp').value = '';
   document.getElementById('exp-hkd').value = '';
-  document.getElementById('exp-payment').value = '';
+  document.getElementById('exp-payment').value = DEFAULT_EXPENSE_PAYMENT_METHOD;
   document.getElementById('exp-notes').value = '';
   document.getElementById('exp-tax').checked = false;
   setExpenseFormStatus();
@@ -2095,6 +2240,13 @@ async function deleteCategoryRow(categoryId, categoryName) {
 }
 
 async function loadExpensesPage(forceRefresh = false) {
+  try {
+    await ensureRecurringTransactionsCurrent(forceRefresh);
+  } catch (error) {
+    renderExpensesStatus(`Recurring sync error: ${error.message}`, '#c0392b');
+    return;
+  }
+
   if (!expenseMetadata || forceRefresh) {
     try {
       expenseMetadata = await apiGet('/expenses/meta');
@@ -2424,24 +2576,97 @@ function updatePeriodHint(dates) {
   document.getElementById('period-hint').textContent = formatDateRangeText(dates.start, dates.end);
 }
 
-function nav(id, el) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav').forEach(n => n.classList.remove('active'));
-  document.getElementById('sec-' + id).classList.add('active');
+// ─── Area Navigation (top-level: home, finance, planner, data, settings) ───
+
+let currentArea = 'home';
+let plannerInitialized = false;
+
+function navArea(area, el) {
+  currentArea = area;
+
+  // Switch sidebar mode
+  document.querySelectorAll('.sb-mode').forEach(m => m.style.display = 'none');
+  const sidebarMap = { home: 'sb-mode-home', finance: 'sb-mode-finance', planner: 'sb-mode-planner', data: 'sb-mode-finance', settings: 'sb-mode-finance' };
+  const sbMode = document.getElementById(sidebarMap[area] || 'sb-mode-home');
+  if (sbMode) sbMode.style.display = 'flex';
+
+  // Switch content area
+  document.querySelectorAll('.area').forEach(a => a.classList.remove('active'));
+  const areaEl = document.getElementById('area-' + area);
+  if (areaEl) areaEl.classList.add('active');
+  const contentEl = document.querySelector('.main > .content');
+  if (contentEl) contentEl.classList.toggle('content-planner', area === 'planner');
+  if (area !== 'finance') {
+    document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+  }
+
+  // Show/hide the main finance topbar vs planner topbar
+  const mainTopbar = document.querySelector('.main > .topbar');
+  const plannerTopbar = document.getElementById('planner-topbar');
+  if (mainTopbar) mainTopbar.style.display = (area === 'planner') ? 'none' : '';
+  if (plannerTopbar) plannerTopbar.style.display = (area === 'planner') ? 'flex' : 'none';
+
+  // Reset finance topbar controls
+  const periodPills = document.getElementById('period-pills');
+  const basisToggle = document.getElementById('topbar-basis-toggle');
+  const periodHint = document.getElementById('period-hint');
+  const periodWrap = document.getElementById('period-selector-wrap');
+  const customWrap = document.getElementById('custom-period-wrap');
+  if (periodPills) periodPills.style.display = 'none';
+  if (basisToggle) basisToggle.style.display = 'none';
+  if (periodHint) periodHint.style.display = 'none';
+  if (periodWrap) periodWrap.style.display = 'none';
+  if (customWrap) customWrap.style.display = 'none';
+
+  if (area === 'home') {
+    document.getElementById('page-title').textContent = 'Home';
+    loadHomePage();
+  } else if (area === 'finance') {
+    navFinanceSub('dashboard');
+  } else if (area === 'planner') {
+    if (!plannerInitialized) {
+      plannerInitialized = true;
+      if (typeof initShell === 'function') initShell();
+      if (typeof loadDataAndRender === 'function') loadDataAndRender();
+    }
+  } else if (area === 'data') {
+    document.getElementById('page-title').textContent = 'Data';
+  } else if (area === 'settings') {
+    document.getElementById('page-title').textContent = 'Settings';
+    loadPageData('settings');
+  }
+}
+
+function navFinanceSub(id, el) {
+  if (currentArea !== 'finance') {
+    navArea('finance');
+  }
+  // Clear nav active states in finance sidebar
+  document.querySelectorAll('#sb-mode-finance .nav').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
 
-  const p = pages[id];
-  document.getElementById('page-title').textContent = p.title;
-  document.getElementById('top-btn-label').textContent = p.action;
-  document.getElementById('top-btn').style.display = p.action ? 'flex' : 'none';
-  document.getElementById('period-pills').style.display = p.pills ? 'flex' : 'none';
+  // Show the correct finance section
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const sec = document.getElementById('sec-' + id);
+  if (sec) sec.classList.add('active');
 
+  const p = pages[id];
+  if (p) {
+    document.getElementById('page-title').textContent = p.title;
+    const periodPills = document.getElementById('period-pills');
+    if (periodPills) periodPills.style.display = p.pills ? 'flex' : 'none';
+    const basisToggle = document.getElementById('topbar-basis-toggle');
+    if (basisToggle) basisToggle.style.display = id === 'dashboard' ? 'flex' : 'none';
+  }
   currentPage = id;
-  const basisToggle = document.getElementById('topbar-basis-toggle');
-  if (basisToggle) basisToggle.style.display = id === 'dashboard' ? 'flex' : 'none';
   syncPeriodSelector();
   loadPageData(id);
 }
+
+function nav(id, el) {
+  navFinanceSub(id, el);
+}
+
 
 function setDashboardBasis(basis, btn) {
   dashboardBasis = basis;
@@ -2484,7 +2709,19 @@ function updatePeriodNavButtons() {
   next.disabled = sel.selectedIndex <= 0;
 }
 
-function loadPageData(page) {
+function shouldSyncRecurringForPage(page) {
+  return ['dashboard', 'expenses', 'income', 'tax', 'finance', 'recurring', 'reports', 'monthly-overview'].includes(page);
+}
+
+async function loadPageData(page) {
+  if (!_dbReady) return;
+  if (shouldSyncRecurringForPage(page)) {
+    try {
+      await ensureRecurringTransactionsCurrent();
+    } catch (error) {
+      console.error('Recurring sync failed:', error);
+    }
+  }
   if (page === 'dashboard') {
     const dates = getPeriodDates(currentPeriodMode);
     updatePeriodHint(dates);
@@ -2628,6 +2865,8 @@ function populateReportFilterOptions() {
 
   groupSelect.value = groups.includes(currentGroup) ? currentGroup : 'All groups';
   categorySelect.value = categories.includes(currentCategory) ? currentCategory : 'All categories';
+  syncReportSearchableFilterInput('report-group-filter');
+  syncReportSearchableFilterInput('report-cat-filter');
 }
 
 function buildReportQueryParams() {
@@ -2638,9 +2877,11 @@ function buildReportQueryParams() {
   });
   const group = document.getElementById('report-group-filter')?.value || 'All groups';
   const category = document.getElementById('report-cat-filter')?.value || 'All categories';
+  const classification = document.getElementById('report-classification-filter')?.value || 'All classifications';
 
   if (group !== 'All groups') params.set('group', group);
   if (category !== 'All categories') params.set('category', category);
+  if (classification !== 'All classifications') params.set('classification', classification);
 
   return { dates, params };
 }
@@ -2807,9 +3048,8 @@ function renderTrendChart(rows, trendType) {
   }
 
   let effectiveRows = rows;
-  if (!reportIncludeTax && currentReportsData?.stackedTrend) {
+  if (reportTaxFilter !== 'all' && Array.isArray(currentReportsData?.stackedTrend) && currentReportsData.stackedTrend.length) {
     const filtered = filterTaxFromStackedTrend(currentReportsData.stackedTrend);
-    const periodKey = trendType === 'daily' ? 'period' : 'period';
     const byPeriod = {};
     for (const r of filtered) {
       if (!byPeriod[r.period]) byPeriod[r.period] = { gbp: 0, gbp_only: 0, hkd: 0 };
@@ -2984,6 +3224,19 @@ function renderLargestExpenses(rows) {
   </tr>`).join('');
 }
 
+function createEmptyReportsData() {
+  return {
+    categorySpending: [],
+    trendData: [],
+    stackedTrend: [],
+    trendType: reportPeriodMode === 'Month' ? 'daily' : 'monthly',
+    largestExpenses: [],
+    groupCategorySpending: [],
+    groupCategorySpendingUsed: [],
+    dashMetrics: {},
+  };
+}
+
 function renderReports(data, dates) {
   currentReportsData = data;
   updatePeriodHint(dates);
@@ -2994,6 +3247,7 @@ function renderReports(data, dates) {
 }
 
 async function loadReports() {
+  const loadSeq = ++reportsLoadSeq;
   if (!expenseMetadata) {
     try {
       expenseMetadata = await apiGet('/expenses/meta');
@@ -3008,36 +3262,60 @@ async function loadReports() {
   populateClassificationFilter();
   const { dates, params } = buildReportQueryParams();
   renderReportsLoading('Loading reports…');
+  currentReportsData = createEmptyReportsData();
 
   try {
     const isMonthMode = reportPeriodMode === 'Month';
     const dashPeriodMode = isMonthMode ? 'Month' : (reportPeriodMode === 'Financial year' ? 'Financial Year' : 'Custom');
-    const dashParams = new URLSearchParams({ period_mode: dashPeriodMode, start_date: dates.start, end_date: dates.end });
+    const dashParams = new URLSearchParams(params);
+    dashParams.set('period_mode', dashPeriodMode);
     const trendEndpoint = isMonthMode ? `/reports/daily-trend?${params}` : `/reports/monthly-trend?${params}`;
     const stackedGranularity = isMonthMode ? 'daily' : 'monthly';
-    const [summary, categorySpending, livingClassification, trendData, stackedTrend, largestExpenses, dashData] = await Promise.all([
-      apiGet(`/reports/summary?${params}`),
-      apiGet(`/reports/category-spending?${params}`),
-      apiGet(`/reports/living-classification?${params}`),
-      apiGet(trendEndpoint),
-      apiGet(`/reports/stacked-trend?${params}&granularity=${stackedGranularity}`),
-      apiGet(`/reports/largest-expenses?${params}`),
-      apiGet(`/reports/dashboard?${dashParams}`),
-    ]);
+    const trendPromise = apiGet(trendEndpoint);
+    const stackedTrendPromise = apiGet(`/reports/stacked-trend?${params}&granularity=${stackedGranularity}`);
+    const largestExpensesPromise = apiGet(`/reports/largest-expenses?${params}`);
+    const dashDataPromise = apiGet(`/reports/dashboard?${dashParams}`);
 
-    renderReports({
-      summary,
-      categorySpending,
-      livingClassification,
-      trendData,
-      stackedTrend,
-      trendType: isMonthMode ? 'daily' : 'monthly',
-      largestExpenses,
-      groupCategorySpending: dashData.group_category_spending || [],
-      groupCategorySpendingUsed: dashData.group_category_spending_used || [],
-      dashMetrics: dashData.metrics || {},
-    }, dates);
+    const [trendResult, stackedTrendResult] = await Promise.allSettled([trendPromise, stackedTrendPromise]);
+    if (loadSeq !== reportsLoadSeq) return;
+
+    if (trendResult.status === 'fulfilled') {
+      currentReportsData.trendData = trendResult.value || [];
+    }
+    if (stackedTrendResult.status === 'fulfilled') {
+      currentReportsData.stackedTrend = stackedTrendResult.value || [];
+    }
+    currentReportsData.trendType = isMonthMode ? 'daily' : 'monthly';
+
+    if (trendResult.status === 'fulfilled' || stackedTrendResult.status === 'fulfilled') {
+      try {
+        renderTrendChart(currentReportsData.trendData, currentReportsData.trendType);
+      } catch (e) {
+        console.error('Trend render error:', e);
+      }
+    } else {
+      document.getElementById('trend-hint').textContent = `Trend load error: ${trendResult.reason?.message || stackedTrendResult.reason?.message || 'Unknown error'}`;
+    }
+
+    const [largestExpensesResult, dashDataResult] = await Promise.allSettled([
+      largestExpensesPromise,
+      dashDataPromise,
+    ]);
+    if (loadSeq !== reportsLoadSeq) return;
+
+    if (largestExpensesResult.status === 'fulfilled') currentReportsData.largestExpenses = largestExpensesResult.value || [];
+    if (dashDataResult.status === 'fulfilled') {
+      currentReportsData.groupCategorySpending = dashDataResult.value.group_category_spending || [];
+      currentReportsData.groupCategorySpendingUsed = dashDataResult.value.group_category_spending_used || [];
+      currentReportsData.categorySpending = buildCategoryRowsFromGroupCategorySpending(
+        dashDataResult.value.group_category_spending || [],
+      );
+      currentReportsData.dashMetrics = dashDataResult.value.metrics || {};
+    }
+
+    renderReports(currentReportsData, dates);
   } catch (error) {
+    if (loadSeq !== reportsLoadSeq) return;
     renderReportsError(`Report load error: ${error.message}`);
   }
 }
@@ -3089,13 +3367,21 @@ function setReportBasis(basis, btn) {
 function renderReportMetrics(data) {
   try {
     const m = data.dashMetrics || {};
-    const s = data.summary || {};
+    const basisRows = reportBasis === 'used'
+      ? (data.groupCategorySpendingUsed || data.groupCategorySpending || [])
+      : (data.groupCategorySpending || []);
 
-    const summaryTotal = parseFloat(s.total_gbp) || 0;
-    const gbpOnly = parseFloat(s.gbp_only) || 0;
-    const totalHkd = parseFloat(s.total_hkd) || 0;
-    const count = s.transaction_count || 0;
-    const hkdInGbp = summaryTotal - gbpOnly;
+    const summaryTotal = basisRows.reduce(
+      (sum, row) => sum + (parseFloat(row.amount_gbp) || 0),
+      0,
+    );
+    const gbpOnly = basisRows.length
+      ? basisRows.reduce((sum, row) => sum + ((!row.amount_hkd || parseFloat(row.amount_hkd) <= 0) ? (parseFloat(row.amount_gbp) || 0) : 0), 0)
+      : 0;
+    const totalHkd = basisRows.length
+      ? basisRows.reduce((sum, row) => sum + (parseFloat(row.amount_hkd) || 0), 0)
+      : 0;
+    const count = m.transaction_count || 0;
 
     const exTaxKey = reportBasis === 'used' ? 'expense_used_ex_tax_gbp' : 'expense_paid_ex_tax_gbp';
     const exTaxGbp = parseFloat(m[exTaxKey]) || summaryTotal;
@@ -3107,6 +3393,7 @@ function renderReportMetrics(data) {
     } else if (reportTaxFilter === 'with-liability') {
       totalGbp = exTaxGbp + taxLiability;
     }
+    const hkdInGbp = Math.max(totalGbp - gbpOnly, 0);
     setReportMetricValue('mc-rpt-gbp', fmtGBP(totalGbp));
     setReportMetricValue('mc-rpt-gbp-only', fmtGBP(gbpOnly));
     setReportMetricValue('mc-rpt-hkd', 'HK$' + fmtAmt(totalHkd));
@@ -3156,7 +3443,10 @@ function refreshReportBreakdown() {
     renderClassificationChart(classRows);
     renderClassificationTable(classRows);
   } else {
-    let catRows = filterTaxFromCategorySpending(currentReportsData.categorySpending);
+    let catRows = reportBasis === 'used'
+      ? buildCategoryRowsFromGroupCategorySpending(currentReportsData.groupCategorySpendingUsed || currentReportsData.groupCategorySpending || [])
+      : (currentReportsData.categorySpending || []);
+    catRows = filterTaxFromCategorySpending(catRows);
     if (reportTaxFilter === 'with-liability') {
       const m = currentReportsData.dashMetrics || {};
       const taxLiability = parseFloat(m.total_tax_amount_gbp) || 0;
@@ -3275,6 +3565,31 @@ function toggleClassificationDetail(index) {
   const arrow = parentRow?.querySelector('span:last-child') ||
     document.querySelector(`.clf-row[onclick="toggleClassificationDetail(${index})"] span:last-child`);
   if (arrow) arrow.textContent = isHidden ? '▾' : '▸';
+}
+
+function buildCategoryRowsFromGroupCategorySpending(gcsRows) {
+  const totals = {};
+  for (const row of gcsRows || []) {
+    const category = row.category || 'Uncategorised';
+    if (!totals[category]) {
+      totals[category] = {
+        category,
+        amount_gbp: 0,
+        amount_hkd: 0,
+        color: getCatColor(category),
+      };
+    }
+    totals[category].amount_gbp += parseFloat(row.amount_gbp) || 0;
+    totals[category].amount_hkd += parseFloat(row.amount_hkd) || 0;
+  }
+  return Object.values(totals)
+    .map(row => ({
+      category: row.category,
+      amount_gbp: row.amount_gbp.toFixed(2),
+      amount_hkd: row.amount_hkd.toFixed(2),
+      color: row.color,
+    }))
+    .sort((a, b) => (parseFloat(b.amount_gbp) || 0) - (parseFloat(a.amount_gbp) || 0));
 }
 
 function buildClassificationRows(gcsRows, currency) {
@@ -3466,6 +3781,7 @@ function populateClassificationFilter() {
   const options = ['All classifications', ...classificationData.map(g => g.name)];
   sel.innerHTML = options.map(o => `<option>${o}</option>`).join('');
   sel.value = options.includes(current) ? current : 'All classifications';
+  syncReportSearchableFilterInput('report-classification-filter');
 }
 
 function openClassificationManager() {
@@ -3842,9 +4158,26 @@ let recurringExpenses = [];
 let recurringIncomes = [];
 let editingRecExpenseId = null;
 let editingRecIncomeId = null;
+let recurringGenerationSyncDate = '';
+
+async function ensureRecurringTransactionsCurrent(force = false) {
+  const todayKey = toISODate(todayDate());
+  if (!force && recurringGenerationSyncDate === todayKey) return;
+
+  await Promise.all([
+    apiPost('/recurring/expenses/generate', {}),
+    apiPost('/recurring/income/generate', {}),
+  ]);
+
+  recurringGenerationSyncDate = todayKey;
+  expenseMetadata = null;
+  incomeMetadata = null;
+  taxMetadata = null;
+}
 
 async function loadRecurringPage() {
   try {
+    await ensureRecurringTransactionsCurrent();
     if (!expenseMetadata) {
       try { expenseMetadata = await apiGet('/expenses/meta'); } catch (e) {}
     }
@@ -4477,7 +4810,95 @@ function renderMonthlyOverviewDoughnut(canvasId, totalId, wrapId, rows, type, me
   moCharts.push(chart);
 }
 
+let _dbReady = false;
+
+async function checkSetupStatus() {
+  try {
+    const res = await fetch('/api/setup/status');
+    const data = await res.json();
+    if (!data.configured) {
+      document.getElementById('setup-overlay').style.display = 'flex';
+      _dbReady = false;
+      return false;
+    }
+  } catch (_) {}
+  _dbReady = true;
+  return true;
+}
+
+async function submitSetupCredentials() {
+  const btn = document.getElementById('setup-save-btn');
+  const errEl = document.getElementById('setup-error');
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+
+  const rawUrl = document.getElementById('setup-url').value.trim();
+  const password = document.getElementById('setup-password').value;
+
+  if (!rawUrl || !password) {
+    errEl.textContent = 'Both fields are required.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-plug-connected"></i> Connect';
+    return;
+  }
+
+  let projectRef;
+  try {
+    const u = new URL(rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl);
+    projectRef = u.hostname.split('.')[0];
+  } catch (_) {
+    errEl.textContent = 'Invalid URL. Use the format https://abcdefg.supabase.co';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-plug-connected"></i> Connect';
+    return;
+  }
+
+  const payload = {
+    host: `db.${projectRef}.supabase.co`,
+    port: 5432,
+    dbname: 'postgres',
+    user: `postgres.${projectRef}`,
+    password: password,
+    sslmode: 'require',
+  };
+
+  try {
+    const res = await fetch('/api/setup/credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.detail || 'Connection failed. Check your URL and password.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-plug-connected"></i> Connect';
+      return;
+    }
+    document.getElementById('setup-overlay').style.display = 'none';
+    _dbReady = true;
+    clearExpenseForm();
+    clearIncomeForm();
+    clearTaxForm();
+    clearFinanceForm();
+    syncPeriodSelector();
+    loadPageData('dashboard');
+  } catch (e) {
+    errEl.textContent = 'Network error: ' + e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-plug-connected"></i> Connect';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  const dbReady = await checkSetupStatus();
+
   document.getElementById('period-selector').addEventListener('change', event => {
     selectedPeriodKeys[currentPeriodMode] = event.target.value;
     updatePeriodNavButtons();
@@ -4551,6 +4972,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  initializeReportSearchableFilters();
 
   document.getElementById('catmgr-overlay')?.addEventListener('mousedown', e => {
     if (e.target === e.currentTarget) closeCategoryManager();
@@ -4691,5 +5114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   clearTaxForm();
   clearFinanceForm();
   syncPeriodSelector();
-  loadPageData('dashboard');
+  if (dbReady) {
+    navArea('home', document.querySelector('.sidebar .nav:first-of-type'));
+  }
 });

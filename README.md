@@ -1,6 +1,6 @@
 # Expense Tracker
 
-Personal expense tracker for one user, built with Python 3.11+, Streamlit, and Supabase PostgreSQL.
+Personal expense tracker for one user, built with Python 3.11+, FastAPI, and Supabase PostgreSQL.
 
 The current stage is expense-only. Income handling is intentionally deferred until a later milestone if needed.
 
@@ -21,10 +21,15 @@ The current stage is expense-only. Income handling is intentionally deferred unt
 pip install -r requirements.txt
 ```
 
-3. Copy the example secrets file and fill in your own local values:
+3. Export your local Supabase connection settings, or copy from `.env.example`:
 
 ```bash
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+export SUPABASE_HOST=your-db-host
+export SUPABASE_PORT=5432
+export SUPABASE_DBNAME=postgres
+export SUPABASE_USER=postgres
+export SUPABASE_PASSWORD=your-password
+export SUPABASE_SSLMODE=require
 ```
 
 4. Run tests:
@@ -33,10 +38,10 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 pytest
 ```
 
-5. Start the Streamlit app:
+5. Start the FastAPI app:
 
 ```bash
-streamlit run src/app.py
+uvicorn api.main:app --reload
 ```
 
 ## Supabase setup
@@ -50,13 +55,12 @@ streamlit run src/app.py
    If you already created the finance snapshot table before the date column was added, also run [sql/011_add_finance_snapshot_date.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/sql/011_add_finance_snapshot_date.sql).
    To enable saved transfer/exchange records that also adjust Finance Situation balances, run [sql/022_create_exchange_records.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/sql/022_create_exchange_records.sql).
    If you already enabled transfer/exchange records before fees were added, also run [sql/023_add_exchange_fee_amount.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/sql/023_add_exchange_fee_amount.sql).
-3. Copy [.streamlit/secrets.toml.example](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/.streamlit/secrets.toml.example) to `.streamlit/secrets.toml`.
-4. Fill in the `supabase` values with your own database credentials.
+3. Set the `SUPABASE_*` environment variables with your own database credentials before starting the app.
 
 Notes:
 
 - Use the direct database host or the Supabase pooler host, depending on which connection details you want for V1.
-- Keep `sslmode = "require"`.
+- Keep `SUPABASE_SSLMODE=require`.
 - The database schema is expense-only for the current stage and does not include `transaction_type`.
 - New expenses can store an optional `payment_method` such as `Monzo`, `HSBC`, or `Cash`.
 - The app also includes a separate `Finance Situation` page for current balance snapshot rows by institution, account, currency, and snapshot date.
@@ -65,8 +69,7 @@ Notes:
 
 ## Notes
 
-- Do not commit `.streamlit/secrets.toml` or any real credentials.
-- Keep `.streamlit/secrets.toml.example` as placeholders only.
+- Do not commit real credentials.
 - Supabase setup and schema creation are handled in later milestones.
 - CSV export is planned as the V1 backup method.
 - The current sample input file is `sample_data/sample_expense.csv`.

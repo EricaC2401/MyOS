@@ -248,3 +248,157 @@ def serialize_recurring_income(stored) -> dict[str, Any]:
         "end_date": stored.end_date.isoformat() if stored.end_date else None,
         "is_active": stored.is_active,
     }
+
+
+# ---------------------------------------------------------------------------
+# Planner serializers
+# ---------------------------------------------------------------------------
+
+def _date_or_none(val) -> str | None:
+    if val is None:
+        return None
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
+
+
+def serialize_habit(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "name": stored.name,
+        "description": stored.description,
+        "type": stored.type,
+        "target": stored.target,
+        "tracking_days": stored.tracking_days,
+        "category": stored.category,
+        "icon": stored.icon,
+        "is_active": stored.is_active,
+        "sort_order": stored.sort_order,
+    }
+
+
+def serialize_habit_entry(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "habit_id": stored.habit_id,
+        "entry_date": stored.entry_date.isoformat(),
+        "is_done": stored.is_done,
+    }
+
+
+def serialize_habit_category(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "name": stored.name,
+        "icon": stored.icon,
+        "color_key": stored.color_key,
+        "sort_order": stored.sort_order,
+    }
+
+
+def serialize_goal(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "area": stored.area,
+        "target_completion_date": _date_or_none(stored.target_completion_date),
+        "is_important": stored.is_important,
+        "is_urgent": stored.is_urgent,
+        "is_done": stored.is_done,
+        "is_cancelled": stored.is_cancelled,
+        "is_active": stored.is_active,
+        "sort_order": stored.sort_order,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+    }
+
+
+def serialize_task(stored) -> dict[str, Any]:
+    recurrence = None
+    if stored.recurring_template_id is not None:
+        recurrence = {
+            "template_id": stored.recurring_template_id,
+            "repeat_unit": stored.recurring_repeat_unit,
+            "weekday": stored.recurring_weekday,
+            "day_of_month": stored.recurring_day_of_month,
+            "is_active": stored.recurring_is_active,
+        }
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "category": stored.category,
+        "area": stored.area,
+        "goal_id": stored.goal_id,
+        "deadline": _date_or_none(stored.deadline),
+        "is_done": stored.is_done,
+        "is_cancelled": stored.is_cancelled,
+        "completed_at": _date_or_none(stored.completed_at),
+        "is_active": stored.is_active,
+        "recurring_template_id": stored.recurring_template_id,
+        "recurring_occurrence_date": _date_or_none(stored.recurring_occurrence_date),
+        "recurrence": recurrence,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+    }
+
+
+def serialize_recurring_task_template(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "category": stored.category,
+        "area": stored.area,
+        "goal_id": stored.goal_id,
+        "repeat_unit": stored.repeat_unit,
+        "repeat_every": stored.repeat_every,
+        "weekday": stored.weekday,
+        "day_of_month": stored.day_of_month,
+        "start_date": _date_or_none(stored.start_date),
+        "is_active": stored.is_active,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_event(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "event_date": _date_or_none(stored.event_date),
+        "event_time": str(stored.event_time) if stored.event_time else None,
+        "venue": stored.venue,
+        "category": stored.category,
+        "is_done": stored.is_done,
+        "is_cancelled": stored.is_cancelled,
+        "is_active": stored.is_active,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+    }
+
+
+def serialize_daily_plan(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "plan_date": stored.plan_date.isoformat(),
+        "notes": stored.notes,
+    }
+
+
+def serialize_daily_plan_item(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "daily_plan_id": stored.daily_plan_id,
+        "item_type": stored.item_type,
+        "task_id": stored.task_id,
+        "event_id": stored.event_id,
+        "title_snapshot": stored.title_snapshot,
+        "category_snapshot": stored.category_snapshot,
+        "area_snapshot": stored.area_snapshot,
+        "status": stored.status,
+        "is_today_focus": stored.is_today_focus,
+        "is_important": stored.is_important,
+        "is_urgent": stored.is_urgent,
+        "is_highlight": stored.is_highlight,
+        "time_text": stored.time_text,
+        "note_text": stored.note_text,
+        "sort_order": stored.sort_order,
+        "source_plan_item_id": stored.source_plan_item_id,
+        "moved_to_plan_item_id": stored.moved_to_plan_item_id,
+    }

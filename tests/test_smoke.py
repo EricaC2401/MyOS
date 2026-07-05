@@ -5,9 +5,9 @@ def test_project_structure_exists() -> None:
     required_paths = [
         Path("README.md"),
         Path("requirements.txt"),
-        Path(".streamlit/secrets.toml.example"),
         Path("sample_data/sample_expense.csv"),
-        Path("src/app.py"),
+        Path("api/main.py"),
+        Path("frontend/index.html"),
         Path("src/db.py"),
         Path("src/models.py"),
         Path("src/import_csv.py"),
