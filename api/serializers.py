@@ -296,11 +296,27 @@ def serialize_habit_category(stored) -> dict[str, Any]:
     }
 
 
+def serialize_goal_theme(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "notes": stored.notes,
+        "is_done": stored.is_done,
+        "is_cancelled": stored.is_cancelled,
+        "is_active": stored.is_active,
+        "sort_order": stored.sort_order,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
 def serialize_goal(stored) -> dict[str, Any]:
     return {
         "id": stored.id,
         "title": stored.title,
         "area": stored.area,
+        "goal_theme_id": stored.goal_theme_id,
+        "goal_theme_title": stored.goal_theme_title,
         "target_completion_date": _date_or_none(stored.target_completion_date),
         "is_important": stored.is_important,
         "is_urgent": stored.is_urgent,
@@ -309,6 +325,7 @@ def serialize_goal(stored) -> dict[str, Any]:
         "is_active": stored.is_active,
         "sort_order": stored.sort_order,
         "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
     }
 
 

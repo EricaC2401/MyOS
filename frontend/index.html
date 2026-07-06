@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MyOS</title>
-<link rel="stylesheet" href="/css/app.css?v=20260628-07">
+<link rel="stylesheet" href="/css/app.css?v=20260705-01">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -813,6 +813,7 @@
           <span class="page-title" id="planner-page-title">Daily Schedule</span>
           <div class="tab-bar" id="tab-bar-tasks" style="display:none">
             <button class="tab" onclick="switchTab('goals',this)">Goals</button>
+            <button class="tab" onclick="switchTab('milestones',this)">Milestones</button>
             <button class="tab active" onclick="switchTab('todos',this)">To-do</button>
             <button class="tab" onclick="switchTab('events',this)">Events</button>
           </div>
@@ -899,6 +900,16 @@
                 <button class="btn-secondary" onclick="addSlot()">+ Entry</button>
               </div>
             </div>
+            <div class="schedule-quick-activities">
+              <div class="schedule-quick-activities-row">
+                <div class="schedule-quick-activities-label">Quick activities</div>
+                <div class="schedule-quick-activities-list" id="schedule-quick-activities-list"></div>
+              </div>
+              <div class="schedule-quick-activities-row">
+                <input id="schedule-quick-activity-input" class="schedule-quick-activities-input" type="text" placeholder="Add a reusable activity, e.g. Get up" onkeydown="if(event.key==='Enter') addScheduleQuickActivity()">
+                <button class="btn-secondary" type="button" onclick="addScheduleQuickActivity()">Save activity</button>
+              </div>
+            </div>
             <div class="sched-hdr">
               <div class="sh">Time</div>
               <div class="sh f1">Activity</div>
@@ -926,41 +937,29 @@
               </div>
               <div class="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <input id="goal-search" type="text" placeholder="Search goals" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" oninput="updatePlannerFilter('goals','search',this.value)">
-                <select id="goal-area-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('goals','area',this.value)">
-                  <option value="">All areas</option>
-                </select>
                 <button class="btn-secondary" onclick="resetPlannerFilter('goals')"><i class="ti ti-x"></i>Clear</button>
               </div>
             </div>
             <div class="card">
               <div class="card-head">
-                <span class="card-title">Core work goals</span>
-                <button class="btn-primary" onclick="openModal('coretask')">+ Add goal</button>
+                <span class="card-title">Life goals</span>
+                <button class="btn-primary" onclick="openModal('goaltheme')">+ Add goal</button>
               </div>
-              <div class="tbl-wrap"><table class="dt" id="goals-pending-card">
-                <thead><tr><th class="c"></th><th data-sort-group="goals" data-sort-field="title" data-sort-label="Goal" onclick="togglePlannerSort('goals','title')" style="cursor:pointer">Goal</th><th class="c" data-sort-group="goals" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('goals','important')" style="cursor:pointer" title="Important"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th><th class="c" data-sort-group="goals" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('goals','urgent')" style="cursor:pointer" title="Urgent"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th><th style="width:150px;cursor:pointer" data-sort-group="goals" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('goals','area')">Area</th><th style="width:120px;cursor:pointer" data-sort-group="goals" data-sort-field="target_completion_date" data-sort-label="Target" onclick="togglePlannerSort('goals','target_completion_date')">Target</th><th style="width:90px;cursor:pointer" data-sort-group="goals" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('goals','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
-                <tbody id="goals-tbody"></tbody>
-              </table></div>
-              <div class="tbl-wrap" id="goals-done-card" style="display:none"><table class="dt">
-                <thead><tr><th class="c"></th><th data-sort-group="goals" data-sort-field="title" data-sort-label="Goal" onclick="togglePlannerSort('goals','title')" style="cursor:pointer">Goal</th><th class="c" data-sort-group="goals" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('goals','important')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th><th class="c" data-sort-group="goals" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('goals','urgent')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th><th style="width:150px;cursor:pointer" data-sort-group="goals" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('goals','area')">Area</th><th style="width:120px;cursor:pointer" data-sort-group="goals" data-sort-field="target_completion_date" data-sort-label="Target" onclick="togglePlannerSort('goals','target_completion_date')">Target</th><th style="width:90px;cursor:pointer" data-sort-group="goals" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('goals','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
-                <tbody id="goals-done-tbody"></tbody>
-              </table></div>
-              <div class="tbl-wrap" id="goals-cancelled-card" style="display:none"><table class="dt">
-                <thead><tr><th class="c"></th><th data-sort-group="goals" data-sort-field="title" data-sort-label="Goal" onclick="togglePlannerSort('goals','title')" style="cursor:pointer">Goal</th><th class="c" data-sort-group="goals" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('goals','important')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th><th class="c" data-sort-group="goals" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('goals','urgent')" style="cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th><th style="width:150px;cursor:pointer" data-sort-group="goals" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('goals','area')">Area</th><th style="width:120px;cursor:pointer" data-sort-group="goals" data-sort-field="target_completion_date" data-sort-label="Target" onclick="togglePlannerSort('goals','target_completion_date')">Target</th><th style="width:90px;cursor:pointer" data-sort-group="goals" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('goals','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
-                <tbody id="goals-cancelled-tbody"></tbody>
-              </table></div>
-              <div class="add-row" id="goals-add-row">
-                <input class="f1" id="ct-name" placeholder="Goal name" onkeydown="if(event.key==='Enter')addCoreTask()" />
-                <select style="width:155px" id="ct-goal"><option value="">— Area —</option></select>
-                <input style="width:140px" id="ct-target-date" type="date" />
-                <button class="btn-primary" onclick="addCoreTask()">Add</button>
+              <div id="goals-pending-card">
+                <div id="goals-cards"></div>
+              </div>
+              <div id="goals-done-card" style="display:none">
+                <div id="goals-done-cards"></div>
+              </div>
+              <div id="goals-cancelled-card" style="display:none">
+                <div id="goals-cancelled-cards"></div>
               </div>
             </div>
           </div>
 
           <div class="view active" id="view-todos">
             <div class="metrics m4">
-              <div class="mc"><div class="mc-label">To do</div><div class="mc-value purple" id="td-pending">0</div></div>
+              <div class="mc"><div class="mc-label">To-do</div><div class="mc-value purple" id="td-pending">0</div></div>
               <div class="mc"><div class="mc-label">Done</div><div class="mc-value" id="td-done">0</div></div>
               <div class="mc"><div class="mc-label">Overdue</div><div class="mc-value red" id="td-overdue">0</div></div>
               <div class="mc"><div class="mc-label">Total</div><div class="mc-value" id="td-total">0</div></div>
@@ -976,16 +975,13 @@
                 <select id="td-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('todos','category',this.value)">
                   <option value="">All categories</option>
                 </select>
-                <select id="td-area-filter" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" onchange="updatePlannerFilter('todos','area',this.value)">
-                  <option value="">All areas</option>
-                </select>
                 <button class="btn-secondary" onclick="resetPlannerFilter('todos')"><i class="ti ti-x"></i>Clear</button>
               </div>
             </div>
             <div class="card" id="card-pending">
               <div class="card-head">
                 <span class="card-title">Pending</span>
-                <button class="btn-primary" onclick="openModal('todo')">+ Add item</button>
+                <button class="btn-primary" onclick="openModal('todo')">+ Add to-do</button>
               </div>
               <div class="tbl-wrap"><table class="dt">
                 <thead><tr>
@@ -993,7 +989,7 @@
                   <th class="c" style="cursor:pointer" data-sort-group="todos" data-sort-field="today" data-sort-label="Today" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' onclick="togglePlannerSort('todos','today')" title="Today"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></th>
                   <th class="c" style="cursor:pointer" data-sort-group="todos" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('todos','important')" title="Important"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th>
                   <th class="c" style="cursor:pointer" data-sort-group="todos" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('todos','urgent')" title="Urgent"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th>
-                  <th style="width:120px;cursor:pointer" data-sort-group="todos" data-sort-field="goal" data-sort-label="Linked goal" onclick="togglePlannerSort('todos','goal')">Linked goal</th><th style="width:100px;cursor:pointer" data-sort-group="todos" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('todos','area')">Area</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th>
+                  <th style="width:120px;cursor:pointer" data-sort-group="todos" data-sort-field="goal" data-sort-label="Milestone" onclick="togglePlannerSort('todos','goal')">Milestone</th><th style="width:100px">Goal</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th>
                   <th style="width:85px">Move</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th>
                 </tr></thead>
                 <tbody id="todos-pending-tbody"></tbody>
@@ -1001,6 +997,7 @@
               <div class="add-row">
                 <input class="f1" id="td-name" placeholder="To-do item" onkeydown="if(event.key==='Enter')addTodo()" />
                 <select style="width:90px" id="td-cat"></select>
+                <select style="width:150px" id="td-goal"><option value="">— Milestone —</option></select>
                 <select style="width:120px" id="td-repeat" onchange="syncInlineTaskRecurrenceFields()">
                   <option value="none">No repeat</option>
                   <option value="weekly">Weekly</option>
@@ -1032,15 +1029,89 @@
             <div class="card" id="card-done" style="display:none">
               <div class="card-head"><span class="card-title">Completed</span></div>
               <div class="tbl-wrap"><table class="dt">
-                <thead><tr><th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th><th style="width:100px;cursor:pointer" data-sort-group="todos" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('todos','area')">Area</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="completed_at" data-sort-label="Completed" onclick="togglePlannerSort('todos','completed_at')">Completed</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <thead><tr><th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th><th style="width:100px">Goal</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="completed_at" data-sort-label="Completed" onclick="togglePlannerSort('todos','completed_at')">Completed</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
                 <tbody id="todos-done-tbody"></tbody>
               </table></div>
             </div>
             <div class="card" id="card-cancelled" style="display:none">
               <div class="card-head"><span class="card-title">Cancelled</span></div>
               <div class="tbl-wrap"><table class="dt">
-                <thead><tr><th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th><th style="width:100px;cursor:pointer" data-sort-group="todos" data-sort-field="area" data-sort-label="Area" onclick="togglePlannerSort('todos','area')">Area</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
+                <thead><tr><th class="c"></th><th style="width:72px;cursor:pointer" data-sort-group="todos" data-sort-field="category" data-sort-label="Cat" onclick="togglePlannerSort('todos','category')">Cat</th><th style="cursor:pointer" data-sort-group="todos" data-sort-field="title" data-sort-label="Item" onclick="togglePlannerSort('todos','title')">Item</th><th style="width:100px">Goal</th><th style="width:105px;cursor:pointer" data-sort-group="todos" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('todos','deadline')">Deadline</th><th style="width:90px;cursor:pointer" data-sort-group="todos" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('todos','created_at')">Created</th><th class="c"></th><th class="c">Cancel</th></tr></thead>
                 <tbody id="todos-cancelled-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+
+          <div class="view" id="view-milestones">
+            <div class="metrics m4">
+              <div class="mc"><div class="mc-label">Pending</div><div class="mc-value purple" id="ms-pending">0</div></div>
+              <div class="mc"><div class="mc-label">Completed</div><div class="mc-value" id="ms-done">0</div></div>
+              <div class="mc"><div class="mc-label">Cancelled</div><div class="mc-value" id="ms-cancelled">0</div></div>
+              <div class="mc"><div class="mc-label">Total</div><div class="mc-value" id="ms-total">0</div></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;border:1px solid #e0e4ef;border-radius:7px;overflow:hidden;width:fit-content">
+                <button class="seg-btn active" onclick="switchMilestoneTab('pending',this)">Pending</button>
+                <button class="seg-btn" onclick="switchMilestoneTab('done',this)" style="border-left:1px solid #e0e4ef">Completed</button>
+                <button class="seg-btn" onclick="switchMilestoneTab('cancelled',this)" style="border-left:1px solid #e0e4ef">Cancelled</button>
+              </div>
+              <div class="filter-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input id="ms-search" type="text" placeholder="Search milestones" style="padding:3px 7px;border:1px solid #dde1ec;border-radius:6px;font-size:11.5px;color:#1a1f2e;background:#fff;outline:none;font-family:inherit" oninput="updatePlannerFilter('milestones','search',this.value)">
+                <button class="btn-secondary" onclick="resetPlannerFilter('milestones')"><i class="ti ti-x"></i>Clear</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">Milestones</span>
+                <button class="btn-primary" onclick="openModal('coretask')">+ Add milestone</button>
+              </div>
+              <div class="tbl-wrap" id="milestones-pending-card"><table class="dt">
+                <thead><tr>
+                  <th class="c"></th>
+                  <th style="cursor:pointer" data-sort-group="milestones" data-sort-field="title" data-sort-label="Milestone" onclick="togglePlannerSort('milestones','title')">Milestone</th>
+                  <th class="c" style="cursor:pointer" data-sort-group="milestones" data-sort-field="important" data-sort-label="Important" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"></line><circle cx="12" cy="17" r="1.5" fill="currentColor"></circle></svg>' onclick="togglePlannerSort('milestones','important')" title="Important"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg></th>
+                  <th class="c" style="cursor:pointer" data-sort-group="milestones" data-sort-field="urgent" data-sort-label="Urgent" data-sort-icon='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' onclick="togglePlannerSort('milestones','urgent')" title="Urgent"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></th>
+                  <th style="width:120px;cursor:pointer" data-sort-group="milestones" data-sort-field="goal" data-sort-label="Goal" onclick="togglePlannerSort('milestones','goal')">Goal</th>
+                  <th style="width:85px;cursor:pointer" data-sort-group="milestones" data-sort-field="todo_count" data-sort-label="No. of To-do" onclick="togglePlannerSort('milestones','todo_count')">No. of To-do</th>
+                  <th style="width:105px;cursor:pointer" data-sort-group="milestones" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('milestones','deadline')">Deadline</th>
+                  <th style="width:90px;cursor:pointer" data-sort-group="milestones" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('milestones','created_at')">Created</th>
+                  <th class="c"></th>
+                  <th class="c">Cancel</th>
+                </tr></thead>
+                <tbody id="milestones-pending-tbody"></tbody>
+              </table></div>
+              <div class="add-row" id="milestones-add-row">
+                <input class="f1" id="ms-name" placeholder="Milestone name" onkeydown="if(event.key==='Enter')addMilestoneInline()" />
+                <select style="width:150px" id="ms-goal"><option value="">— Goal —</option></select>
+                <input style="width:120px" id="ms-deadline" type="date" />
+                <button class="btn-primary" onclick="addMilestoneInline()">Add</button>
+              </div>
+              <div class="tbl-wrap" id="milestones-done-card" style="display:none"><table class="dt">
+                <thead><tr>
+                  <th class="c"></th>
+                  <th style="cursor:pointer" data-sort-group="milestones" data-sort-field="title" data-sort-label="Milestone" onclick="togglePlannerSort('milestones','title')">Milestone</th>
+                  <th style="width:120px;cursor:pointer" data-sort-group="milestones" data-sort-field="goal" data-sort-label="Goal" onclick="togglePlannerSort('milestones','goal')">Goal</th>
+                  <th style="width:85px;cursor:pointer" data-sort-group="milestones" data-sort-field="todo_count" data-sort-label="No. of To-do" onclick="togglePlannerSort('milestones','todo_count')">No. of To-do</th>
+                  <th style="width:105px;cursor:pointer" data-sort-group="milestones" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('milestones','deadline')">Deadline</th>
+                  <th style="width:90px;cursor:pointer" data-sort-group="milestones" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('milestones','created_at')">Created</th>
+                  <th style="width:90px;cursor:pointer" data-sort-group="milestones" data-sort-field="completed_at" data-sort-label="Completed" onclick="togglePlannerSort('milestones','completed_at')">Completed</th>
+                  <th class="c"></th>
+                  <th class="c">Cancel</th>
+                </tr></thead>
+                <tbody id="milestones-done-tbody"></tbody>
+              </table></div>
+              <div class="tbl-wrap" id="milestones-cancelled-card" style="display:none"><table class="dt">
+                <thead><tr>
+                  <th class="c"></th>
+                  <th style="cursor:pointer" data-sort-group="milestones" data-sort-field="title" data-sort-label="Milestone" onclick="togglePlannerSort('milestones','title')">Milestone</th>
+                  <th style="width:120px;cursor:pointer" data-sort-group="milestones" data-sort-field="goal" data-sort-label="Goal" onclick="togglePlannerSort('milestones','goal')">Goal</th>
+                  <th style="width:85px;cursor:pointer" data-sort-group="milestones" data-sort-field="todo_count" data-sort-label="No. of To-do" onclick="togglePlannerSort('milestones','todo_count')">No. of To-do</th>
+                  <th style="width:105px;cursor:pointer" data-sort-group="milestones" data-sort-field="deadline" data-sort-label="Deadline" onclick="togglePlannerSort('milestones','deadline')">Deadline</th>
+                  <th style="width:90px;cursor:pointer" data-sort-group="milestones" data-sort-field="created_at" data-sort-label="Created" onclick="togglePlannerSort('milestones','created_at')">Created</th>
+                  <th class="c"></th>
+                  <th class="c">Cancel</th>
+                </tr></thead>
+                <tbody id="milestones-cancelled-tbody"></tbody>
               </table></div>
             </div>
           </div>
@@ -1300,7 +1371,7 @@
 <script src="/js/utils.js?v=20260629-01"></script>
 <script src="/js/dashboard.js?v=20260630-02"></script>
 <script src="/js/planner-utils.js?v=20260629-01"></script>
-<script src="/js/planner.js?v=20260702-01"></script>
+<script src="/js/planner.js?v=20260705-01"></script>
 <script src="/js/habits.js?v=20260629-01"></script>
 <script src="/js/home.js?v=20260629-01"></script>
 <script src="/js/app.js?v=20260630-01"></script>

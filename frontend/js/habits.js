@@ -31,6 +31,7 @@ let habitSchemaSupportsItemTypes = true;
 let habitSchemaMigrationError = '';
 let habitLoadError = '';
 let habitCalendarMonthKey = '';
+let draggingHabitItemId = '';
 
 function habitFmtKey(date){ return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
 function habitTodayKey(){ return habitFmtKey(new Date()); }
@@ -73,6 +74,51 @@ function normalizeHabitItem(item){ const type=item?.type==='tracking'?'tracking'
 function buildHabitCategoryMap(){ habitCategoryMap={}; for(const c of habitCategories){ const t=HABIT_COLOR_THEMES[c.color_key]||HABIT_COLOR_THEMES.gray; habitCategoryMap[c.name]={icon:c.icon,...t}; } }
 function getHabitItemsOnly(){ return habitItemsState.filter(i=>i.type==='habit'); }
 function getHabitTrackingItems(){ return habitItemsState.filter(i=>i.type==='tracking'); }
+function getHabitSectionItems(type){ return type==='tracking'?getHabitTrackingItems():getHabitItemsOnly(); }
+function getHabitSectionIndex(itemId){
+  const item=habitItemsState.find(entry=>entry.id===itemId);
+  if(!item) return -1;
+  return getHabitSectionItems(item.type).findIndex(entry=>entry.id===itemId);
+}
+function buildHabitReorderedState(type,orderedSectionIds){
+  const sectionMap=new Map(getHabitSectionItems(type).map(item=>[item.id,item]));
+  const reorderedSection=orderedSectionIds.map(id=>sectionMap.get(id)).filter(Boolean);
+  const habits=type==='habit'?reorderedSection:getHabitItemsOnly();
+  const tracking=type==='tracking'?reorderedSection:getHabitTrackingItems();
+  return habits.concat(tracking).map((item,index)=>({ ...item, sort_order:index }));
+}
+async function saveHabitOrder(nextItems,previousItems){
+  habitItemsState=nextItems;
+  renderHabitsSection();
+  try{
+    await apiPut('/habits/reorder',{ordered_ids:nextItems.map(item=>item.id)});
+  } catch(error){
+    habitItemsState=previousItems;
+    renderHabitsSection();
+    throw error;
+  }
+}
+async function reorderHabitToSectionPosition(itemId,nextIndex){
+  if(busy)return;
+  const item=habitItemsState.find(entry=>entry.id===itemId);
+  if(!item)return;
+  const sectionItems=getHabitSectionItems(item.type);
+  const currentIndex=sectionItems.findIndex(entry=>entry.id===itemId);
+  if(currentIndex===-1||nextIndex<0||nextIndex>=sectionItems.length||currentIndex===nextIndex)return;
+  const orderedIds=sectionItems.map(entry=>entry.id);
+  const [movedId]=orderedIds.splice(currentIndex,1);
+  orderedIds.splice(nextIndex,0,movedId);
+  const previousItems=habitItemsState;
+  const nextItems=buildHabitReorderedState(item.type,orderedIds);
+  setBusy(true);
+  try{
+    await saveHabitOrder(nextItems,previousItems);
+  } catch(error){
+    showToast(`Error reordering: ${error.message}`,true);
+  } finally {
+    setBusy(false);
+  }
+}
 
 function getHabitStreak(habitId){
   const logs=habitEntriesMap[habitId]||{}; const today=new Date(); let streak=0;
@@ -165,6 +211,7 @@ function renderHabitTable(){
 function renderHabitTableSection(title,items,isTracking){
   if(!items.length) return`<div class="habit-section-block"><div class="habit-section-head"><div class="habit-section-title">${esc(title)}</div><div class="habit-section-count">0 items</div></div><div class="card"><div class="empty-state" style="padding:22px 18px">${title==='Habits'?'No habits yet.':'No tracking logs yet.'}</div></div></div>`;
   const today=habitTodayKey(); const week=habitWeekKeys();
+  const reorderHint=habitEditMode?'<div class="habit-reorder-hint"><i class="ti ti-arrows-move"></i> Drag or use the arrows to reorder items.</div>':'';
   const thMove=habitEditMode?'<th></th>':''; const thDel=habitEditMode?'<th></th>':'';
   const rows=items.map(item=>{
     const cat=habitCategoryMap[item.category]||HABIT_FALLBACK_CAT;
@@ -173,12 +220,13 @@ function renderHabitTableSection(title,items,isTracking){
     const summarySecondary=isTracking?formatHabitLastLogged(item.id):`${streak} day${streak===1?'':'s'} streak`;
     const dots=week.map((k,i)=>{const done=!!logs[k];const isT=k===today;const isF=k>today;let cls='habit-wd';if(done)cls+=' habit-wdd';if(isT)cls+=' habit-wdt';if(isF)cls+=' habit-wdf';const click=isF?'':`onclick="toggleHabitDay('${item.id}','${k}')"`;return`<div class="${cls}" ${click} title="${isF?HABIT_DOW[i]:(done?`${HABIT_DOW[i]} — ${isTracking?'remove log':'undo'}`:`${HABIT_DOW[i]} — ${isTracking?'log date':'mark done'}`)}"></div>`;}).join('');
     const chipStyle=`background:${cat.chip};border-color:${cat.chipB};color:${cat.chipT}`;
-    const gi=habitItemsState.findIndex(e=>e.id===item.id);
-    const moveCol=habitEditMode?`<td><div class="habit-move-col"><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',-1)" ${gi===0?'disabled':''} title="Move up"><i class="ti ti-chevron-up"></i></button><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',1)" ${gi===habitItemsState.length-1?'disabled':''} title="Move down"><i class="ti ti-chevron-down"></i></button></div></td>`:'';
+    const sectionIndex=items.findIndex(entry=>entry.id===item.id);
+    const rowAttrs=habitEditMode?` class="habit-reorder-row${draggingHabitItemId===item.id?' is-dragging':''}" draggable="true" ondragstart="handleHabitReorderDragStart(event,'${item.id}')" ondragover="handleHabitReorderDragOver(event,'${item.id}')" ondrop="handleHabitReorderDrop(event,'${item.id}')" ondragend="handleHabitReorderDragEnd()"`:'';
+    const moveCol=habitEditMode?`<td><div class="habit-move-col"><span class="habit-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></span><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',-1)" ${sectionIndex===0?'disabled':''} title="Move up"><i class="ti ti-chevron-up"></i></button><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',1)" ${sectionIndex===items.length-1?'disabled':''} title="Move down"><i class="ti ti-chevron-down"></i></button></div></td>`:'';
     const delCol=habitEditMode?`<td><button class="habit-inline-edit-btn" onclick="deleteHabitItem('${item.id}')" title="Hide"><i class="ti ti-trash"></i></button></td>`:'';
-    return`<tr>${moveCol}<td><div class="habit-item-meta"><div class="habit-item-name-row" style="font-weight:600;white-space:nowrap"><i class="ti ${cat.icon}" style="font-size:14px;color:${cat.chipT}"></i>${esc(item.name)}${habitEditMode?`<button class="habit-inline-edit-btn" onclick="openHabitEditModal('${item.id}')" title="Edit"><i class="ti ti-pencil"></i></button>`:''}</div></div></td><td>${esc(item.description||'—')}</td><td><button class="habit-done-btn${isDone?' is-done':''}" onclick="toggleHabitDay('${item.id}','${today}')">${isDone?`<i class="ti ti-arrow-back-up" style="font-size:11px"></i> Undo`:(isTracking?'Log today':'Done')}</button></td><td><div class="habit-week-col"><div class="habit-week-lbl-row">${HABIT_DOW.map(d=>`<div class="habit-wl">${d}</div>`).join('')}</div><div class="habit-week-dots">${dots}</div></div></td><td><div class="habit-item-summary"><strong>${esc(summaryPrimary)}</strong><span>${esc(summarySecondary)}</span></div></td><td><span class="chip" style="${chipStyle}">${esc(item.category||'Uncategorised')}</span></td>${delCol}</tr>`;
+    return`<tr${rowAttrs}>${moveCol}<td><div class="habit-item-meta"><div class="habit-item-name-row" style="font-weight:600;white-space:nowrap"><i class="ti ${cat.icon}" style="font-size:14px;color:${cat.chipT}"></i>${esc(item.name)}${habitEditMode?`<button class="habit-inline-edit-btn" onclick="openHabitEditModal('${item.id}')" title="Edit"><i class="ti ti-pencil"></i></button>`:''}</div></div></td><td>${esc(item.description||'—')}</td><td><button class="habit-done-btn${isDone?' is-done':''}" onclick="toggleHabitDay('${item.id}','${today}')">${isDone?`<i class="ti ti-arrow-back-up" style="font-size:11px"></i> Undo`:(isTracking?'Log today':'Done')}</button></td><td><div class="habit-week-col"><div class="habit-week-lbl-row">${HABIT_DOW.map(d=>`<div class="habit-wl">${d}</div>`).join('')}</div><div class="habit-week-dots">${dots}</div></div></td><td><div class="habit-item-summary"><strong>${esc(summaryPrimary)}</strong><span>${esc(summarySecondary)}</span></div></td><td><span class="chip" style="${chipStyle}">${esc(item.category||'Uncategorised')}</span></td>${delCol}</tr>`;
   }).join('');
-  return`<div class="habit-section-block"><div class="habit-section-head"><div class="habit-section-title">${esc(title)}</div><div class="habit-section-count">${items.length} item${items.length===1?'':'s'}</div></div><div class="card"><div class="tbl-wrap"><table class="dt"><thead><tr>${thMove}<th>Item</th><th>Description</th><th>Today</th><th>Current week</th><th>Summary</th><th>Category</th>${thDel}</tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
+  return`<div class="habit-section-block"><div class="habit-section-head"><div><div class="habit-section-title">${esc(title)}</div>${reorderHint}</div><div class="habit-section-count">${items.length} item${items.length===1?'':'s'}</div></div><div class="card"><div class="tbl-wrap"><table class="dt"><thead><tr>${thMove}<th>Item</th><th>Description</th><th>Today</th><th>Current week</th><th>Summary</th><th>Category</th>${thDel}</tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
 }
 
 function renderHabitCalendar(){
@@ -192,6 +240,7 @@ function renderHabitCalendar(){
 
 function renderHabitCalendarSection(title,items,isTracking,year,month,daysInMonth,firstDow,today){
   if(!items.length) return`<div class="habit-section-block"><div class="habit-section-head"><div class="habit-section-title">${esc(title)}</div><div class="habit-section-count">0 items</div></div><div class="card"><div class="empty-state" style="padding:22px 18px">${title==='Habits'?'No habits yet.':'No tracking logs yet.'}</div></div></div>`;
+  const reorderHint=habitEditMode?'<div class="habit-reorder-hint"><i class="ti ti-arrows-move"></i> Drag or use the arrows to reorder items.</div>':'';
   const cards=items.map(item=>{
     const cat=habitCategoryMap[item.category]||HABIT_FALLBACK_CAT;
     const logs=habitEntriesMap[item.id]||{}; const streak=getHabitStreak(item.id); const isDone=!!logs[today];
@@ -205,10 +254,11 @@ function renderHabitCalendarSection(title,items,isTracking,year,month,daysInMont
       const click=isF?'':`onclick="toggleHabitDay('${item.id}','${k}')"`;
       cells+=`<div class="${cls}" ${click} title="${isF?'':(done?(isTracking?'Remove log':'Undo'):(isTracking?'Log date':'Mark done'))}">${day}</div>`;
     }
-    const gi=habitItemsState.findIndex(e=>e.id===item.id);
-    return`<div class="habit-card"><div class="habit-card-hdr"><div class="habit-card-title"><i class="ti ${cat.icon}" style="color:${cat.chipT}"></i>${esc(item.name)}${habitEditMode?`<button class="habit-inline-edit-btn" onclick="openHabitEditModal('${item.id}')" title="Edit"><i class="ti ti-pencil"></i></button>`:''}</div><button class="habit-done-btn${isDone?' is-done':''}" onclick="toggleHabitDay('${item.id}','${today}')">${isDone?`<i class="ti ti-arrow-back-up" style="font-size:11px"></i> Undo`:(isTracking?'Log today':'Done')}</button></div><div class="habit-cal-lbl">${HABIT_MONTHS_SHORT[month]} ${year} &middot; <span class="chip" style="${chipStyle};font-size:10px;padding:1px 7px">${esc(item.category||'Uncategorised')}</span></div><div class="habit-cal-dow-row">${HABIT_DOW.map(d=>`<div class="habit-cal-dow">${d}</div>`).join('')}</div><div class="habit-cal-grid">${cells}</div><div class="habit-card-streak">${isTracking?`<span class="tracking-ico"><i class="ti ti-clock"></i></span><strong>${esc(getHabitTrackingSummary(item))}</strong> ${esc(formatHabitLastLogged(item.id))}`:`<span style="color:#E24B4A">&#x1f525;</span><strong>${esc(getHabitWeeklyTargetSummary(item))}</strong> ${streak} day${streak===1?'':'s'} streak`}${habitEditMode?`<div class="habit-card-edit-bar"><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',-1)" ${gi===0?'disabled':''} title="Move up"><i class="ti ti-chevron-up"></i></button><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',1)" ${gi===habitItemsState.length-1?'disabled':''} title="Move down"><i class="ti ti-chevron-down"></i></button><button class="habit-inline-edit-btn" onclick="deleteHabitItem('${item.id}')" title="Hide"><i class="ti ti-trash"></i></button></div>`:''}</div></div>`;
+    const sectionIndex=items.findIndex(entry=>entry.id===item.id);
+    const cardAttrs=habitEditMode?` draggable="true" ondragstart="handleHabitReorderDragStart(event,'${item.id}')" ondragover="handleHabitReorderDragOver(event,'${item.id}')" ondrop="handleHabitReorderDrop(event,'${item.id}')" ondragend="handleHabitReorderDragEnd()"`:'';
+    return`<div class="habit-card${habitEditMode?' habit-reorder-card':''}${draggingHabitItemId===item.id?' is-dragging':''}"${cardAttrs}><div class="habit-card-hdr"><div class="habit-card-title">${habitEditMode?'<span class="habit-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></span>':''}<i class="ti ${cat.icon}" style="color:${cat.chipT}"></i>${esc(item.name)}${habitEditMode?`<button class="habit-inline-edit-btn" onclick="openHabitEditModal('${item.id}')" title="Edit"><i class="ti ti-pencil"></i></button>`:''}</div><button class="habit-done-btn${isDone?' is-done':''}" onclick="toggleHabitDay('${item.id}','${today}')">${isDone?`<i class="ti ti-arrow-back-up" style="font-size:11px"></i> Undo`:(isTracking?'Log today':'Done')}</button></div><div class="habit-cal-lbl">${HABIT_MONTHS_SHORT[month]} ${year} &middot; <span class="chip" style="${chipStyle};font-size:10px;padding:1px 7px">${esc(item.category||'Uncategorised')}</span></div><div class="habit-cal-dow-row">${HABIT_DOW.map(d=>`<div class="habit-cal-dow">${d}</div>`).join('')}</div><div class="habit-cal-grid">${cells}</div><div class="habit-card-streak">${isTracking?`<span class="tracking-ico"><i class="ti ti-clock"></i></span><strong>${esc(getHabitTrackingSummary(item))}</strong> ${esc(formatHabitLastLogged(item.id))}`:`<span style="color:#E24B4A">&#x1f525;</span><strong>${esc(getHabitWeeklyTargetSummary(item))}</strong> ${streak} day${streak===1?'':'s'} streak`}${habitEditMode?`<div class="habit-card-edit-bar"><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',-1)" ${sectionIndex===0?'disabled':''} title="Move up"><i class="ti ti-chevron-up"></i></button><button class="habit-move-btn" onclick="moveHabitItem('${item.id}',1)" ${sectionIndex===items.length-1?'disabled':''} title="Move down"><i class="ti ti-chevron-down"></i></button><button class="habit-inline-edit-btn" onclick="deleteHabitItem('${item.id}')" title="Hide"><i class="ti ti-trash"></i></button></div>`:''}</div></div>`;
   }).join('');
-  return`<div class="habit-section-block"><div class="habit-section-head"><div class="habit-section-title">${esc(title)}</div><div class="habit-section-count">${items.length} item${items.length===1?'':'s'}</div></div><div class="habit-cal-grid-wrap">${cards}</div></div>`;
+  return`<div class="habit-section-block"><div class="habit-section-head"><div><div class="habit-section-title">${esc(title)}</div>${reorderHint}</div><div class="habit-section-count">${items.length} item${items.length===1?'':'s'}</div></div><div class="habit-cal-grid-wrap">${cards}</div></div>`;
 }
 
 async function toggleHabitDay(id,key){
@@ -224,7 +274,7 @@ async function toggleHabitDay(id,key){
 }
 
 async function createHabitItem({name,description,category,type,target,tracking_days}){
-  const payload={name,description,category,type,target:type==='habit'?normalizeHabitTarget(target):null,tracking_days:type==='tracking'?(parseInt(tracking_days,10)||7):null,is_active:true};
+  const payload={name,description,category,type,target:type==='habit'?normalizeHabitTarget(target):null,tracking_days:type==='tracking'?(parseInt(tracking_days,10)||7):null,is_active:true,sort_order:habitItemsState.length};
   const data=await apiPost('/habits',payload);
   habitItemsState.push(normalizeHabitItem(data));
   habitEntriesMap[data.id]={};
@@ -250,22 +300,47 @@ async function deleteHabitItem(id){
 }
 
 async function moveHabitItem(id,direction){
-  if(busy)return;
-  const index=habitItemsState.findIndex(e=>e.id===id);
-  const nextIndex=index+direction;
-  if(nextIndex<0||nextIndex>=habitItemsState.length)return;
-  setBusy(true);
-  [habitItemsState[index],habitItemsState[nextIndex]]=[habitItemsState[nextIndex],habitItemsState[index]];
-  renderHabitsSection();
-  try{
-    const first=habitItemsState[index]; const second=habitItemsState[nextIndex];
-    await apiPut('/habits/'+first.id,{sort_order:index});
-    await apiPut('/habits/'+second.id,{sort_order:nextIndex});
-    first.sort_order=index; second.sort_order=nextIndex;
-  } catch(e){
-    [habitItemsState[index],habitItemsState[nextIndex]]=[habitItemsState[nextIndex],habitItemsState[index]];
-    renderHabitsSection(); showToast(`Error reordering: ${e.message}`,true);
-  } finally { setBusy(false); }
+  const sectionIndex=getHabitSectionIndex(id);
+  if(sectionIndex===-1)return;
+  await reorderHabitToSectionPosition(id,sectionIndex+direction);
+}
+
+function handleHabitReorderDragStart(event,itemId){
+  if(!habitEditMode)return;
+  draggingHabitItemId=itemId;
+  if(event.dataTransfer){
+    event.dataTransfer.effectAllowed='move';
+    event.dataTransfer.setData('text/plain',itemId);
+  }
+  event.currentTarget?.classList.add('is-dragging');
+}
+
+function handleHabitReorderDragOver(event,targetId){
+  if(!habitEditMode)return;
+  const sourceId=draggingHabitItemId||(event.dataTransfer?event.dataTransfer.getData('text/plain'):'');
+  if(!sourceId||sourceId===targetId)return;
+  const source=habitItemsState.find(item=>item.id===sourceId);
+  const target=habitItemsState.find(item=>item.id===targetId);
+  if(!source||!target||source.type!==target.type)return;
+  event.preventDefault();
+  if(event.dataTransfer) event.dataTransfer.dropEffect='move';
+}
+
+async function handleHabitReorderDrop(event,targetId){
+  if(!habitEditMode)return;
+  event.preventDefault();
+  const sourceId=draggingHabitItemId||(event.dataTransfer?event.dataTransfer.getData('text/plain'):'');
+  if(!sourceId||sourceId===targetId)return;
+  const targetIndex=getHabitSectionIndex(targetId);
+  if(targetIndex===-1)return;
+  draggingHabitItemId='';
+  await reorderHabitToSectionPosition(sourceId,targetIndex);
+}
+
+function handleHabitReorderDragEnd(){
+  if(!draggingHabitItemId)return;
+  document.querySelectorAll('.habit-reorder-row.is-dragging, .habit-reorder-card.is-dragging').forEach(node=>node.classList.remove('is-dragging'));
+  draggingHabitItemId='';
 }
 
 function switchHabitView(view,button){

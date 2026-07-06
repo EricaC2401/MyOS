@@ -80,7 +80,7 @@ from api.routers import (
     finance, exchange, recurring,
     import_data, export_data,
     setup,
-    habits, habit_categories, goals, planner_tasks, planner_events,
+    habits, habit_categories, goal_themes, goals, planner_tasks, planner_events,
     daily_plans, daily_plan_items, planner_tags,
 )
 
@@ -101,6 +101,7 @@ app.include_router(export_data.router, prefix="/api")
 
 app.include_router(habits.router, prefix="/api")
 app.include_router(habit_categories.router, prefix="/api")
+app.include_router(goal_themes.router, prefix="/api")
 app.include_router(goals.router, prefix="/api")
 app.include_router(planner_tasks.router, prefix="/api")
 app.include_router(planner_events.router, prefix="/api")

@@ -7,8 +7,37 @@ import pytest
 from src.models import ValidationError
 from src.planner_models import (
     get_next_recurring_task_due_date,
+    validate_goal,
+    validate_goal_theme,
     validate_recurring_task_template,
 )
+
+
+def test_validate_goal_theme_accepts_notes() -> None:
+    theme = validate_goal_theme(
+        {
+            "title": " Career ",
+            "notes": " Focus on the next role ",
+        }
+    )
+
+    assert theme.title == "Career"
+    assert theme.notes == "Focus on the next role"
+    assert theme.is_active is True
+
+
+def test_validate_goal_accepts_goal_theme_id() -> None:
+    goal = validate_goal(
+        {
+            "title": "Full-time job hunting",
+            "goal_theme_id": "theme-1",
+            "target_completion_date": "2026-07-15",
+        }
+    )
+
+    assert goal.title == "Full-time job hunting"
+    assert goal.goal_theme_id == "theme-1"
+    assert goal.target_completion_date == date(2026, 7, 15)
 
 
 def test_validate_recurring_task_template_accepts_weekly_rule() -> None:

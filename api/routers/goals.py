@@ -15,6 +15,7 @@ router = APIRouter(prefix="/goals", tags=["planner"])
 class GoalCreate(BaseModel):
     title: str
     area: str | None = None
+    goal_theme_id: str | None = None
     target_completion_date: str | None = None
     is_important: bool | None = False
     is_urgent: bool | None = False
@@ -24,6 +25,7 @@ class GoalCreate(BaseModel):
 class GoalUpdate(BaseModel):
     title: str | None = None
     area: str | None = None
+    goal_theme_id: str | None = None
     target_completion_date: str | None = None
     is_important: bool | None = None
     is_urgent: bool | None = None

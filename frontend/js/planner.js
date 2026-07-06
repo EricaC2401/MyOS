@@ -14,14 +14,24 @@ const COLOR_OPTIONS = [
   { value:'chip-gray', label:'Gray' },
 ];
 
+const AREA_ICON_OPTIONS = [
+  { value:'ti-briefcase', label:'Briefcase' },
+  { value:'ti-home', label:'Home' },
+  { value:'ti-building-bank', label:'Bank' },
+  { value:'ti-heart', label:'Heart' },
+  { value:'ti-activity-heartbeat', label:'Health' },
+  { value:'ti-user', label:'Person' },
+  { value:'ti-star', label:'Star' },
+];
+
 const DEFAULT_TAG_CONFIG = {
   areas: [
-    { label:'Finance', color:'chip-amber' },
-    { label:'Career & Skills', color:'chip-purple' },
-    { label:'Home Ownership', color:'chip-teal' },
-    { label:'Relationships & Love', color:'chip-coral' },
-    { label:'Health', color:'chip-green' },
-    { label:'Personal', color:'chip-gray' },
+    { label:'Finance', color:'chip-amber', icon:'ti-building-bank' },
+    { label:'Career & Skills', color:'chip-purple', icon:'ti-briefcase' },
+    { label:'Home Ownership', color:'chip-teal', icon:'ti-home' },
+    { label:'Relationships & Love', color:'chip-coral', icon:'ti-heart' },
+    { label:'Health', color:'chip-green', icon:'ti-activity-heartbeat' },
+    { label:'Personal', color:'chip-gray', icon:'ti-user' },
   ],
   taskCategories: [
     { label:'Personal', color:'chip-teal' },
@@ -37,6 +47,8 @@ const DEFAULT_TAG_CONFIG = {
 };
 
 const BLOCKED_TAG_LABELS = new Set(['taxpayment']);
+const SCHEDULE_QUICK_ACTIVITY_STORAGE_KEY = 'myos_schedule_quick_activities';
+const DEFAULT_SCHEDULE_QUICK_ACTIVITIES = ['Get up', 'Shower'];
 
 // ─── State ─────────────────────────────────────────
 
@@ -44,6 +56,7 @@ let AREAS = [];
 let CATS = [];
 let EVENT_CATS = [];
 let AREA_CHIP = {};
+let AREA_ICON = {};
 let CAT_CHIP = {};
 let EVENT_CAT_CHIP = {};
 let tagConfig = null;
@@ -53,24 +66,30 @@ let currentSection = 'schedule';
 let currentTab = 'todos';
 let todoTab = 'pending';
 let goalTab = 'pending';
+let milestoneTab = 'pending';
 let eventTab = 'pending';
 let busy = false;
 let modalType = '';
 let modalSaveHandler = null;
 let plannerLoadError = '';
+let lastScheduleActivityFocus = null;
+let pendingScheduleActivityInsert = null;
 const plannerSortState = {
   goals: { field: 'priority', dir: 'desc' },
+  milestones: { field: 'priority', dir: 'desc' },
   todos: { field: 'priority', dir: 'desc' },
   events: { field: 'event_date', dir: 'asc' },
 };
 const plannerFilters = {
-  goals: { search: '', area: '' },
-  todos: { search: '', category: '', area: '' },
+  goals: { search: '' },
+  milestones: { search: '' },
+  todos: { search: '', category: '' },
   events: { search: '', category: '' },
 };
 let scheduleKeyboardBound = false;
 
 const state = {
+  goalThemes: [],
   goals: [],
   tasks: [],
   events: [],
@@ -78,6 +97,9 @@ const state = {
   currentDateItems: [],
   carryoverTaskItems: [],
   selectedDateManuallySet: false,
+  scheduleQuickActivities: [],
+  draggingQuickActivity: null,
+  goalThemeExpanded: {},
 };
 
 // ─── Utility functions ─────────────────────────────
@@ -104,8 +126,13 @@ function recurrenceSummary(task){
 function areaChip(g){if(!g)return'';return`<span class="chip ${AREA_CHIP[g]||'chip-gray'}">${esc(g)}</span>`;}
 function catChip(c){if(!c)return'';return`<span class="chip ${CAT_CHIP[c]||'chip-gray'}">${esc(c)}</span>`;}
 function areaChipClass(g){return AREA_CHIP[g] || 'chip-gray';}
+function areaIconClass(g){return AREA_ICON[g] || 'ti-tag';}
 function catChipClass(c){return CAT_CHIP[c] || 'chip-gray';}
 function eventCatChipClass(c){return EVENT_CAT_CHIP[c] || 'chip-gray';}
+function areaChipWithIcon(g){
+  if(!g) return '';
+  return `<span class="chip ${areaChipClass(g)}"><i class="ti ${areaIconClass(g)}"></i>${esc(g)}</span>`;
+}
 
 const icoT=on=>`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="${on?'#0F6E56':'#c0c8d8'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
 const icoI=on=>`<svg width="10" height="10" viewBox="0 0 24 24" fill="${on?'#BA7517':'none'}" stroke="${on?'#BA7517':'#c0c8d8'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="13"/><circle cx="12" cy="17" r="1.5"/></svg>`;
@@ -153,6 +180,195 @@ function showPlannerInsertDebug(context, payload, error){
   showToast('Planner insert failed. Debug panel opened.', true);
 }
 
+function normalizeScheduleQuickActivities(items){
+  const seen = new Set();
+  const normalized = [];
+  for(const item of Array.isArray(items) ? items : []){
+    const value = String(item || '').trim();
+    const key = value.toLowerCase();
+    if(!value || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(value);
+  }
+  return normalized;
+}
+
+function loadScheduleQuickActivities(){
+  try{
+    const stored = localStorage.getItem(SCHEDULE_QUICK_ACTIVITY_STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : DEFAULT_SCHEDULE_QUICK_ACTIVITIES;
+    state.scheduleQuickActivities = normalizeScheduleQuickActivities(parsed);
+  } catch(error){
+    console.warn('Could not load quick schedule activities:', error);
+    state.scheduleQuickActivities = [...DEFAULT_SCHEDULE_QUICK_ACTIVITIES];
+  }
+  if(!state.scheduleQuickActivities.length){
+    state.scheduleQuickActivities = [...DEFAULT_SCHEDULE_QUICK_ACTIVITIES];
+  }
+}
+
+function persistScheduleQuickActivities(){
+  localStorage.setItem(
+    SCHEDULE_QUICK_ACTIVITY_STORAGE_KEY,
+    JSON.stringify(normalizeScheduleQuickActivities(state.scheduleQuickActivities)),
+  );
+}
+
+function renderScheduleQuickActivities(){
+  const listEl = document.getElementById('schedule-quick-activities-list');
+  if(!listEl) return;
+  if(!state.scheduleQuickActivities.length){
+    listEl.innerHTML = '<span class="schedule-quick-activities-empty">Save common activities once, then add them in one click.</span>';
+    return;
+  }
+  listEl.innerHTML = state.scheduleQuickActivities.map(activity => `
+    <span class="schedule-quick-activity-chip" draggable="true" data-activity="${esc(activity)}" ondragstart="handleQuickActivityDragStart(event)" ondragover="handleQuickActivityDragOver(event)" ondrop="handleQuickActivityDrop(event)" ondragenter="handleQuickActivityDragEnter(event)" ondragleave="handleQuickActivityDragLeave(event)" ondragend="handleQuickActivityDragEnd(event)">
+      <span class="schedule-quick-activity-handle" aria-hidden="true" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></span>
+      <button class="schedule-quick-activity-trigger" type="button" data-activity="${esc(activity)}" onmousedown="preserveScheduleActivityFocus(event)" onclick="quickAddScheduleActivity(this.dataset.activity)" title="Add ${esc(activity)} to the schedule">${esc(activity)}</button>
+      <button class="schedule-quick-activity-edit" type="button" data-activity="${esc(activity)}" onclick="editScheduleQuickActivity(this.dataset.activity)" aria-label="Edit ${esc(activity)}" title="Edit ${esc(activity)}"><i class="ti ti-pencil"></i></button>
+      <button type="button" data-activity="${esc(activity)}" onclick="removeScheduleQuickActivity(this.dataset.activity)" aria-label="Remove ${esc(activity)}">&times;</button>
+    </span>
+  `).join('');
+}
+
+function preserveScheduleActivityFocus(event){
+  const focusedActivity = getFocusedScheduleActivityInput() || getRememberedScheduleActivityInput();
+  if(!focusedActivity) return;
+  rememberScheduleActivityFocus(focusedActivity);
+  pendingScheduleActivityInsert = {
+    itemId: focusedActivity.dataset.itemId || '',
+    selectionStart: typeof focusedActivity.selectionStart === 'number' ? focusedActivity.selectionStart : (focusedActivity.value || '').length,
+    selectionEnd: typeof focusedActivity.selectionEnd === 'number' ? focusedActivity.selectionEnd : (focusedActivity.value || '').length,
+  };
+  event.preventDefault();
+}
+
+function addScheduleQuickActivity(){
+  const input = document.getElementById('schedule-quick-activity-input');
+  const value = input ? input.value.trim() : '';
+  if(!value) return;
+  const exists = state.scheduleQuickActivities.some(item => item.toLowerCase() === value.toLowerCase());
+  if(exists){
+    showToast('That quick activity already exists', true);
+    if(input) input.select();
+    return;
+  }
+  state.scheduleQuickActivities.push(value);
+  state.scheduleQuickActivities = normalizeScheduleQuickActivities(state.scheduleQuickActivities);
+  persistScheduleQuickActivities();
+  renderScheduleQuickActivities();
+  if(input) input.value = '';
+  showToast('Quick activity saved');
+}
+
+function removeScheduleQuickActivity(activity){
+  state.scheduleQuickActivities = state.scheduleQuickActivities.filter(item => item.toLowerCase() !== String(activity).trim().toLowerCase());
+  persistScheduleQuickActivities();
+  renderScheduleQuickActivities();
+}
+
+function reorderScheduleQuickActivities(sourceActivity, targetActivity){
+  const sourceValue = String(sourceActivity || '').trim().toLowerCase();
+  const targetValue = String(targetActivity || '').trim().toLowerCase();
+  if(!sourceValue || !targetValue || sourceValue === targetValue) return;
+
+  const sourceIndex = state.scheduleQuickActivities.findIndex(item => item.toLowerCase() === sourceValue);
+  const targetIndex = state.scheduleQuickActivities.findIndex(item => item.toLowerCase() === targetValue);
+  if(sourceIndex < 0 || targetIndex < 0) return;
+
+  const reordered = [...state.scheduleQuickActivities];
+  const [moved] = reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, moved);
+  state.scheduleQuickActivities = reordered;
+  persistScheduleQuickActivities();
+  renderScheduleQuickActivities();
+}
+
+function clearQuickActivityDropTargets(){
+  document.querySelectorAll('.schedule-quick-activity-chip.is-drop-target').forEach(node => node.classList.remove('is-drop-target'));
+}
+
+function handleQuickActivityDragStart(event){
+  const chip = event.currentTarget;
+  const activity = chip?.dataset?.activity;
+  if(!activity) return;
+  state.draggingQuickActivity = activity;
+  if(event.dataTransfer){
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', activity);
+  }
+  chip.classList.add('is-dragging');
+}
+
+function handleQuickActivityDragOver(event){
+  if(!state.draggingQuickActivity) return;
+  event.preventDefault();
+  if(event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+}
+
+function handleQuickActivityDragEnter(event){
+  const chip = event.currentTarget;
+  const activity = chip?.dataset?.activity;
+  if(!activity || activity === state.draggingQuickActivity) return;
+  chip.classList.add('is-drop-target');
+}
+
+function handleQuickActivityDragLeave(event){
+  const chip = event.currentTarget;
+  if(chip) chip.classList.remove('is-drop-target');
+}
+
+function handleQuickActivityDrop(event){
+  event.preventDefault();
+  const chip = event.currentTarget;
+  const targetActivity = chip?.dataset?.activity;
+  const sourceActivity = state.draggingQuickActivity || event.dataTransfer?.getData('text/plain');
+  clearQuickActivityDropTargets();
+  reorderScheduleQuickActivities(sourceActivity, targetActivity);
+}
+
+function handleQuickActivityDragEnd(event){
+  state.draggingQuickActivity = null;
+  clearQuickActivityDropTargets();
+  const chip = event.currentTarget;
+  if(chip) chip.classList.remove('is-dragging');
+}
+
+function editScheduleQuickActivity(activity){
+  const currentValue = String(activity || '').trim();
+  if(!currentValue) return;
+  const nextValue = window.prompt('Edit quick activity', currentValue);
+  if(nextValue == null) return;
+
+  const normalizedValue = nextValue.trim();
+  if(!normalizedValue){
+    showToast('Quick activity cannot be empty', true);
+    return;
+  }
+
+  const duplicate = state.scheduleQuickActivities.some(item =>
+    item.toLowerCase() === normalizedValue.toLowerCase() && item.toLowerCase() !== currentValue.toLowerCase()
+  );
+  if(duplicate){
+    showToast('That quick activity already exists', true);
+    return;
+  }
+
+  state.scheduleQuickActivities = state.scheduleQuickActivities.map(item =>
+    item.toLowerCase() === currentValue.toLowerCase() ? normalizedValue : item
+  );
+  state.scheduleQuickActivities = normalizeScheduleQuickActivities(state.scheduleQuickActivities);
+  persistScheduleQuickActivities();
+  renderScheduleQuickActivities();
+  showToast('Quick activity updated');
+}
+
+async function quickAddScheduleActivity(activity){
+  const titleSnapshot = String(activity || '').trim();
+  if(!titleSnapshot) return;
+  await insertScheduleTextOrAddRow(titleSnapshot);
+}
+
 // ─── Tag config ────────────────────────────────────
 
 function cloneDefaultTagConfig(){
@@ -166,9 +382,13 @@ function normalizeTagGroup(group, fallbackGroup){
     const label = String(entry?.label || '').trim();
     if(!label || BLOCKED_TAG_LABELS.has(label.toLowerCase()) || seen.has(label)) continue;
     seen.add(label);
+    const fallbackEntry = fallbackGroup.find(item => item.label === label) || fallbackGroup[normalized.length] || {};
     normalized.push({
       label,
       color: COLOR_OPTIONS.some(option => option.value === entry?.color) ? entry.color : 'chip-gray',
+      icon: AREA_ICON_OPTIONS.some(option => option.value === entry?.icon)
+        ? entry.icon
+        : (AREA_ICON_OPTIONS.some(option => option.value === fallbackEntry?.icon) ? fallbackEntry.icon : 'ti-tag'),
     });
   }
   if(normalized.length) return normalized;
@@ -195,6 +415,7 @@ function applyTagConfig(){
   CATS = tagConfig.taskCategories.map(entry => entry.label);
   EVENT_CATS = tagConfig.eventCategories.map(entry => entry.label);
   AREA_CHIP = Object.fromEntries(tagConfig.areas.map(entry => [entry.label, entry.color]));
+  AREA_ICON = Object.fromEntries(tagConfig.areas.map(entry => [entry.label, entry.icon || 'ti-tag']));
   CAT_CHIP = Object.fromEntries(tagConfig.taskCategories.map(entry => [entry.label, entry.color]));
   EVENT_CAT_CHIP = Object.fromEntries(tagConfig.eventCategories.map(entry => [entry.label, entry.color]));
 }
@@ -250,6 +471,26 @@ function shiftScheduleDate(days){
 
 function getGoalById(id){
   return state.goals.find(goal => goal.id === id) || null;
+}
+
+function getGoalThemeById(id){
+  return state.goalThemes.find(goalTheme => goalTheme.id === id) || null;
+}
+
+function getGoalThemeForTarget(target){
+  if(!target?.goal_theme_id) return null;
+  return getGoalThemeById(target.goal_theme_id);
+}
+
+function getGoalThemeForTask(task){
+  const target = getGoalById(task?.goal_id);
+  return target ? getGoalThemeForTarget(target) : null;
+}
+
+function milestoneStatusLabel(goal){
+  if(goal?.is_cancelled) return 'Cancelled';
+  if(goal?.is_done) return 'Completed';
+  return 'Pending';
 }
 
 function getCurrentTaskItem(taskId){
@@ -312,6 +553,16 @@ function renderTaskTitle(task){
   return `<div>${esc(task.title)}${recurrenceMeta}</div>`;
 }
 
+function renderTaskHierarchyMeta(task){
+  const target = getGoalById(task.goal_id);
+  const goalTheme = target ? getGoalThemeForTarget(target) : null;
+  const parts = [];
+  if(target?.title) parts.push(`Milestone: ${target.title}`);
+  if(goalTheme?.title) parts.push(`Goal: ${goalTheme.title}`);
+  if(!parts.length) return '';
+  return `<div class="mu" style="font-size:10.5px;margin-top:2px">${esc(parts.join(' • '))}</div>`;
+}
+
 function syncTaskRecurrenceFields(){
   const repeatEl = document.getElementById('m-td-repeat');
   const weekdayGroup = document.getElementById('m-td-weekday-group');
@@ -340,6 +591,7 @@ function updatePlannerFilter(group, field, value){
   if(!plannerFilters[group]) return;
   plannerFilters[group][field] = value || '';
   if(group === 'goals') renderGoals();
+  else if(group === 'milestones') renderMilestones();
   else if(group === 'todos') renderTodos();
   else if(group === 'events') renderEvents();
 }
@@ -348,8 +600,9 @@ function resetPlannerFilter(group){
   if(!plannerFilters[group]) return;
   Object.keys(plannerFilters[group]).forEach(key => { plannerFilters[group][key] = ''; });
   const mappings = {
-    goals: ['goal-search', 'goal-area-filter'],
-    todos: ['td-search', 'td-filter', 'td-area-filter'],
+    goals: ['goal-search'],
+    milestones: ['ms-search'],
+    todos: ['td-search', 'td-filter'],
     events: ['ev-search', 'ev-cat-filter'],
   };
   (mappings[group] || []).forEach(id => {
@@ -357,6 +610,7 @@ function resetPlannerFilter(group){
     if(el) el.value = '';
   });
   if(group === 'goals') renderGoals();
+  else if(group === 'milestones') renderMilestones();
   else if(group === 'todos') renderTodos();
   else if(group === 'events') renderEvents();
 }
@@ -381,6 +635,7 @@ function togglePlannerSort(group, field){
   };
   updateSortableHeaders();
   if(group === 'goals') renderGoals();
+  else if(group === 'milestones') renderMilestones();
   else if(group === 'todos') renderTodos();
   else if(group === 'events') renderEvents();
 }
@@ -446,7 +701,6 @@ function sortTodoList(tasks){
       : sort.field === 'important' ? Number(!!a.important)
       : sort.field === 'urgent' ? Number(!!a.urgent)
       : sort.field === 'goal' ? (getGoalById(a.goal_id)?.title || '')
-      : sort.field === 'area' ? a.area
       : sort.field === 'deadline' ? a.deadline
       : sort.field === 'created_at' ? a.created_at
       : sort.field === 'completed_at' ? a.completed_at
@@ -457,8 +711,41 @@ function sortTodoList(tasks){
       : sort.field === 'important' ? Number(!!b.important)
       : sort.field === 'urgent' ? Number(!!b.urgent)
       : sort.field === 'goal' ? (getGoalById(b.goal_id)?.title || '')
-      : sort.field === 'area' ? b.area
       : sort.field === 'deadline' ? b.deadline
+      : sort.field === 'created_at' ? b.created_at
+      : sort.field === 'completed_at' ? b.completed_at
+      : null;
+    return compareValues(aValue, bValue, sort.dir);
+  });
+}
+
+function sortMilestoneList(goals){
+  const sort = plannerSortState.milestones;
+  const milestones = [...goals];
+  if(sort.field === 'priority'){
+    return milestones.sort((a,b) => {
+      const score = goal => (goal.is_urgent ? 4 : 0) + (goal.is_important ? 2 : 0);
+      const result = compareValues(score(a), score(b), sort.dir);
+      if(result) return result;
+      return compareValues(a.target_completion_date || '9999-12-31', b.target_completion_date || '9999-12-31', 'asc');
+    });
+  }
+  return milestones.sort((a,b) => {
+    const aValue = sort.field === 'title' ? a.title
+      : sort.field === 'goal' ? (getGoalThemeForTarget(a)?.title || '')
+      : sort.field === 'todo_count' ? getMilestoneTodoCount(a.id)
+      : sort.field === 'deadline' ? a.target_completion_date
+      : sort.field === 'important' ? Number(!!a.is_important)
+      : sort.field === 'urgent' ? Number(!!a.is_urgent)
+      : sort.field === 'created_at' ? a.created_at
+      : sort.field === 'completed_at' ? a.completed_at
+      : null;
+    const bValue = sort.field === 'title' ? b.title
+      : sort.field === 'goal' ? (getGoalThemeForTarget(b)?.title || '')
+      : sort.field === 'todo_count' ? getMilestoneTodoCount(b.id)
+      : sort.field === 'deadline' ? b.target_completion_date
+      : sort.field === 'important' ? Number(!!b.is_important)
+      : sort.field === 'urgent' ? Number(!!b.is_urgent)
       : sort.field === 'created_at' ? b.created_at
       : sort.field === 'completed_at' ? b.completed_at
       : null;
@@ -509,7 +796,31 @@ async function initShell(){
   applyTagConfig();
   syncCurrentDateIndicators();
   syncScheduleDateIfNeeded(true);
-  renderStaticOptions();
+  refreshPlannerSelectOptions();
+}
+
+function refreshPlannerSelectOptions(){
+  const goalThemeOptions = ['<option value="">— Goal —</option>'].concat(
+    state.goalThemes.filter(goalTheme => !goalTheme.is_done && !goalTheme.is_cancelled)
+      .map(goalTheme => `<option value="${goalTheme.id}">${esc(goalTheme.title)}</option>`)
+  ).join('');
+  const targetOptions = ['<option value="">— Milestone —</option>'].concat(
+    state.goals.filter(goal => !goal.is_done && !goal.is_cancelled)
+      .map(goal => `<option value="${goal.id}">${esc(goal.title)}</option>`)
+  ).join('');
+  const ctGoalEl = document.getElementById('ct-goal');
+  if(ctGoalEl) ctGoalEl.innerHTML = goalThemeOptions;
+  const msGoalEl = document.getElementById('ms-goal');
+  if(msGoalEl) msGoalEl.innerHTML = goalThemeOptions;
+  const tdCatEl = document.getElementById('td-cat');
+  if(tdCatEl) tdCatEl.innerHTML = CATS.map(cat => `<option>${esc(cat)}</option>`).join('');
+  const tdFilterEl = document.getElementById('td-filter');
+  if(tdFilterEl) tdFilterEl.innerHTML = '<option value="">All categories</option>' + CATS.map(cat => `<option value="${esc(cat)}">${esc(cat)}</option>`).join('');
+  const tdGoalEl = document.getElementById('td-goal');
+  if(tdGoalEl) tdGoalEl.innerHTML = targetOptions;
+  const evCatFilterEl = document.getElementById('ev-cat-filter');
+  if(evCatFilterEl) evCatFilterEl.innerHTML = '<option value="">All categories</option>' + EVENT_CATS.map(cat => `<option value="${esc(cat)}">${esc(cat)}</option>`).join('');
+  syncInlineTaskRecurrenceFields();
 }
 
 // ─── Data loading ──────────────────────────────────
@@ -535,24 +846,29 @@ async function loadDataAndRender(){
     plannerLoadError = '';
 
     try{
-      const [goals, tasks, events] = await Promise.all([
+      const [goalThemes, goals, tasks, events] = await Promise.all([
+        apiGet('/goal-themes'),
         apiGet('/goals'),
         apiGet('/tasks'),
         apiGet('/events'),
       ]);
 
+      state.goalThemes = goalThemes || [];
       state.goals = goals || [];
       state.tasks = tasks || [];
       state.events = events || [];
+      state.goalThemeExpanded = Object.fromEntries(state.goalThemes.map(goalTheme => [goalTheme.id, false]));
       await loadCurrentDateItems();
     } catch (error){
       plannerLoadError = error.message;
+      state.goalThemes = [];
       state.goals = [];
       state.tasks = [];
       state.events = [];
       state.currentDateItems = [];
       state.carryoverTaskItems = [];
       state.currentPlanId = null;
+      state.goalThemeExpanded = {};
       if(schemaNotice) schemaNotice.innerHTML = `<div class="notice"><strong>Unable to load planner data.</strong> ${esc(error.message)}.</div>`;
       if(schedGrid) schedGrid.innerHTML = '<div class="empty-state">Planner data could not be loaded.</div>';
     }
@@ -563,6 +879,7 @@ async function loadDataAndRender(){
       console.warn('Habit data load error:', error);
     }
 
+    refreshPlannerSelectOptions();
     renderAll();
     if(plannerLoadError){
       showToast('Planner data loaded with warnings', true);
@@ -608,9 +925,11 @@ async function ensureDailyPlan(dateKey){
 // ─── Render all ────────────────────────────────────
 
 function renderAll(){
+  renderScheduleQuickActivities();
   updateSortableHeaders();
   renderSummaryPills();
   renderGoals();
+  renderMilestones();
   renderTodos();
   renderEvents();
   renderSelectedDateEvents();
@@ -662,11 +981,11 @@ function switchTab(tab, btn){
   currentTab = tab;
   document.querySelectorAll('#tab-bar-tasks .tab').forEach(node => node.classList.remove('active'));
   btn.classList.add('active');
-  ['goals','todos','events'].forEach(view => {
+  ['goals','milestones','todos','events'].forEach(view => {
     const el = document.getElementById(`view-${view}`);
     if(el) el.classList.toggle('active', view === tab);
   });
-  const labels = { goals:'+ Add goal', todos:'+ Add to-do', events:'+ Add event' };
+  const labels = { goals:'+ Add goal', milestones:'+ Add milestone', todos:'+ Add to-do', events:'+ Add event' };
   const addBtn = document.getElementById('topbar-add-btn');
   if(addBtn) addBtn.textContent = labels[tab] || '+ Add';
   updateTopbarForSection();
@@ -675,7 +994,8 @@ function switchTab(tab, btn){
 function topbarAdd(){
   if(currentSection === 'habits'){
     if(typeof openModal === 'function') openModal('habit');
-  } else if(currentTab === 'goals') openModal('coretask');
+  } else if(currentTab === 'goals') openModal('goaltheme');
+  else if(currentTab === 'milestones') openModal('coretask');
   else if(currentTab === 'todos') openModal('todo');
   else openModal('event');
 }
@@ -706,6 +1026,20 @@ function switchGoalTab(tab, btn){
   if(addRow) addRow.style.display = tab === 'pending' ? '' : 'none';
 }
 
+function switchMilestoneTab(tab, btn){
+  milestoneTab = tab;
+  document.querySelectorAll('#view-milestones .seg-btn').forEach(node => node.classList.remove('active'));
+  btn.classList.add('active');
+  const pendingCard = document.getElementById('milestones-pending-card');
+  const doneCard = document.getElementById('milestones-done-card');
+  const cancelledCard = document.getElementById('milestones-cancelled-card');
+  const addRow = document.getElementById('milestones-add-row');
+  if(pendingCard) pendingCard.style.display = tab === 'pending' ? '' : 'none';
+  if(doneCard) doneCard.style.display = tab === 'done' ? '' : 'none';
+  if(cancelledCard) cancelledCard.style.display = tab === 'cancelled' ? '' : 'none';
+  if(addRow) addRow.style.display = tab === 'pending' ? '' : 'none';
+}
+
 function switchEventTab(tab, btn){
   eventTab = tab;
   document.querySelectorAll('#view-events .seg-btn').forEach(node => node.classList.remove('active'));
@@ -722,78 +1056,252 @@ function switchEventTab(tab, btn){
 
 // ─── Goals CRUD ────────────────────────────────────
 
+function getTargetsForGoalTheme(goalThemeId){
+  return sortGoalsList(state.goals.filter(goal => goal.goal_theme_id === goalThemeId));
+}
+
+function toggleGoalThemeExpanded(goalThemeId){
+  state.goalThemeExpanded[goalThemeId] = !state.goalThemeExpanded[goalThemeId];
+  renderGoals();
+}
+
+function renderTargetRows(goalTheme){
+  const targets = getTargetsForGoalTheme(goalTheme.id);
+  const targetOptionsLabel = goalTheme.title || 'Goal';
+  const rows = targets.map(target => `
+    <div class="goal-target-row ${target.is_urgent || target.is_important ? 'hl-row' : ''}">
+      <div class="goal-target-main">
+        <input class="ec" value="${esc(target.title)}" onchange="editGoal('${target.id}','title',this.value)" />
+        <div class="goal-target-meta">
+          <span class="mu">Milestone</span>
+          <span class="mu">${target.target_completion_date ? `Deadline: ${esc(fmtFull(target.target_completion_date))}` : 'No deadline'}</span>
+        </div>
+      </div>
+      <div class="goal-target-actions">
+        <input class="ec mu" type="date" value="${target.target_completion_date || ''}" onchange="editGoal('${target.id}','target_completion_date',this.value)" />
+        <div class="flag f-imp ${target.is_important ? 'on' : ''}" onclick="toggleGoalFlag('${target.id}','important')" title="Important">${icoI(target.is_important)}</div>
+        <div class="flag f-urg ${target.is_urgent ? 'on' : ''}" onclick="toggleGoalFlag('${target.id}','urgent')" title="Urgent">${icoU(target.is_urgent)}</div>
+        <div class="cb ${target.is_done ? 'checked' : ''}" onclick="toggleGoal('${target.id}')" title="Done"></div>
+        <div class="cb ${target.is_cancelled ? 'checked' : ''}" onclick="toggleGoalCancelled('${target.id}')" title="Cancelled"></div>
+        <button class="del-btn" onclick="deleteGoal('${target.id}')" title="Delete milestone">×</button>
+      </div>
+    </div>
+  `).join('');
+  const emptyState = '<div class="empty-state">No milestones yet for this goal.</div>';
+  return `
+    <div class="goal-target-list">
+      ${rows || emptyState}
+      <div class="goal-target-add-row">
+        <input id="target-name-${goalTheme.id}" class="f1" placeholder="Add a milestone under ${esc(targetOptionsLabel)}" onkeydown="if(event.key==='Enter') addTargetForGoalTheme('${goalTheme.id}')" />
+        <input id="target-date-${goalTheme.id}" type="date" />
+        <button class="btn-primary" type="button" onclick="addTargetForGoalTheme('${goalTheme.id}')">Add milestone</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderGoalThemeCard(goalTheme){
+  const expanded = state.goalThemeExpanded[goalTheme.id] !== false;
+  const targets = getTargetsForGoalTheme(goalTheme.id);
+  return `
+    <div class="goal-theme-card ${areaChipClass(goalTheme.title)}">
+      <div class="goal-theme-card-head">
+        <div class="goal-theme-card-title">
+          <button class="btn-ghost goal-theme-toggle" type="button" onclick="toggleGoalThemeExpanded('${goalTheme.id}')">${expanded ? '−' : '+'}</button>
+          <div class="goal-theme-label ${areaChipClass(goalTheme.title)}">
+            <span class="goal-theme-label-icon"><i class="ti ${areaIconClass(goalTheme.title)}"></i></span>
+            <span class="goal-theme-label-text">${esc(goalTheme.title)}</span>
+          </div>
+        </div>
+        <div class="goal-theme-card-actions">
+          <span class="mu">${targets.length} milestone${targets.length === 1 ? '' : 's'}</span>
+          <span class="goal-theme-action-indicator" title="Completed"><i class="ti ti-check"></i></span>
+          <div class="cb ${goalTheme.is_done ? 'checked' : ''}" onclick="toggleGoalTheme('${goalTheme.id}')" title="Completed"></div>
+          <span class="goal-theme-action-indicator" title="Cancelled"><i class="ti ti-x"></i></span>
+          <div class="cb ${goalTheme.is_cancelled ? 'checked' : ''}" onclick="toggleGoalThemeCancelled('${goalTheme.id}')" title="Cancelled"></div>
+          <button class="del-btn" onclick="deleteGoalTheme('${goalTheme.id}')" title="Delete goal">×</button>
+        </div>
+      </div>
+      ${expanded ? `
+        <div class="goal-theme-card-body">
+          <textarea class="goal-theme-notes" placeholder="Notes for this goal" onchange="editGoalTheme('${goalTheme.id}','notes',this.value)">${esc(goalTheme.notes || '')}</textarea>
+          ${renderTargetRows(goalTheme)}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 function renderGoals(){
   const search = normalizeSearch(plannerFilters.goals.search);
-  const areaFilter = plannerFilters.goals.area;
-  const matchesGoalFilter = goal => {
-    if(areaFilter && goal.area !== areaFilter) return false;
-    if(search && ![goal.title, goal.area].some(value => normalizeSearch(value).includes(search))) return false;
-    return true;
+  const matchesGoalThemeFilter = goalTheme => {
+    if(!search) return true;
+    const targets = getTargetsForGoalTheme(goalTheme.id);
+    return [goalTheme.title, goalTheme.notes, ...targets.map(target => target.title)]
+      .some(value => normalizeSearch(value).includes(search));
   };
-  const pendingGoals = sortGoalsList(state.goals.filter(goal => !goal.is_done && !goal.is_cancelled && matchesGoalFilter(goal)));
-  const doneGoals = sortGoalsList(state.goals.filter(goal => goal.is_done && !goal.is_cancelled && matchesGoalFilter(goal)));
-  const cancelledGoals = sortGoalsList(state.goals.filter(goal => goal.is_cancelled && matchesGoalFilter(goal)));
+  const pendingGoalThemes = state.goalThemes.filter(goalTheme => !goalTheme.is_done && !goalTheme.is_cancelled && matchesGoalThemeFilter(goalTheme));
+  const doneGoalThemes = state.goalThemes.filter(goalTheme => goalTheme.is_done && !goalTheme.is_cancelled && matchesGoalThemeFilter(goalTheme));
+  const cancelledGoalThemes = state.goalThemes.filter(goalTheme => goalTheme.is_cancelled && matchesGoalThemeFilter(goalTheme));
 
   const ctActive = document.getElementById('ct-active');
   const ctDone = document.getElementById('ct-done');
   const ctCancelled = document.getElementById('ct-cancelled');
   const ctTotal = document.getElementById('ct-total');
-  if(ctActive) ctActive.textContent = pendingGoals.length;
-  if(ctDone) ctDone.textContent = doneGoals.length;
-  if(ctCancelled) ctCancelled.textContent = cancelledGoals.length;
-  if(ctTotal) ctTotal.textContent = state.goals.length;
+  if(ctActive) ctActive.textContent = pendingGoalThemes.length;
+  if(ctDone) ctDone.textContent = doneGoalThemes.length;
+  if(ctCancelled) ctCancelled.textContent = cancelledGoalThemes.length;
+  if(ctTotal) ctTotal.textContent = state.goalThemes.length;
 
-  const renderGoalRows = goals => goals.map(goal => `
-    <tr class="${goal.is_urgent || goal.is_important ? 'hl-row' : ''}">
-      <td class="c"><div class="cb ${goal.is_done ? 'checked' : ''}" onclick="toggleGoal('${goal.id}')"></div></td>
-      <td><input class="ec" value="${esc(goal.title)}" onchange="editGoal('${goal.id}','title',this.value)" /></td>
-      <td class="c"><div class="flag f-imp ${goal.is_important ? 'on' : ''}" onclick="toggleGoalFlag('${goal.id}','important')">${icoI(goal.is_important)}</div></td>
-      <td class="c"><div class="flag f-urg ${goal.is_urgent ? 'on' : ''}" onclick="toggleGoalFlag('${goal.id}','urgent')">${icoU(goal.is_urgent)}</div></td>
-      <td><select class="isel chip-select ${areaChipClass(goal.area)}" onchange="editGoal('${goal.id}','area',this.value)">
-        <option value="">—</option>${AREAS.map(area => `<option value="${esc(area)}"${goal.area === area ? ' selected' : ''}>${esc(area)}</option>`).join('')}
-      </select></td>
-      <td><input class="ec mu" type="date" value="${goal.target_completion_date || ''}" onchange="editGoal('${goal.id}','target_completion_date',this.value)" style="width:120px" /></td>
-      <td class="mu" style="font-size:11px">${fmtFull(goal.created_at?.slice(0,10))}</td>
-      <td class="c"><button class="del-btn" onclick="deleteGoal('${goal.id}')">×</button></td>
-      <td class="c"><div class="cb ${goal.is_cancelled ? 'checked' : ''}" onclick="toggleGoalCancelled('${goal.id}')"></div></td>
-    </tr>
-  `).join('');
-
-  const goalsTbody = document.getElementById('goals-tbody');
-  const goalsDoneTbody = document.getElementById('goals-done-tbody');
-  const goalsCancelledTbody = document.getElementById('goals-cancelled-tbody');
-  if(goalsTbody) goalsTbody.innerHTML = pendingGoals.length ? renderGoalRows(pendingGoals) : '<tr><td colspan="9"><div class="empty-state">No pending goals.</div></td></tr>';
-  if(goalsDoneTbody) goalsDoneTbody.innerHTML = doneGoals.length ? renderGoalRows(doneGoals) : '<tr><td colspan="9"><div class="empty-state">No completed goals.</div></td></tr>';
-  if(goalsCancelledTbody) goalsCancelledTbody.innerHTML = cancelledGoals.length ? renderGoalRows(cancelledGoals) : '<tr><td colspan="9"><div class="empty-state">No cancelled goals.</div></td></tr>';
+  const goalsCards = document.getElementById('goals-cards');
+  const goalsDoneCards = document.getElementById('goals-done-cards');
+  const goalsCancelledCards = document.getElementById('goals-cancelled-cards');
+  if(goalsCards) goalsCards.innerHTML = pendingGoalThemes.length ? pendingGoalThemes.map(renderGoalThemeCard).join('') : '<div class="empty-state">No active goals yet.</div>';
+  if(goalsDoneCards) goalsDoneCards.innerHTML = doneGoalThemes.length ? doneGoalThemes.map(renderGoalThemeCard).join('') : '<div class="empty-state">No completed goals.</div>';
+  if(goalsCancelledCards) goalsCancelledCards.innerHTML = cancelledGoalThemes.length ? cancelledGoalThemes.map(renderGoalThemeCard).join('') : '<div class="empty-state">No cancelled goals.</div>';
 }
 
-async function addCoreTask(){
-  const titleEl = document.getElementById('ct-name');
+function renderMilestoneTitle(goal){
+  return `<input class="ec" style="${goal.is_urgent || goal.is_important ? 'font-weight:600' : ''}" value="${esc(goal.title)}" onchange="editGoal('${goal.id}','title',this.value)" />`;
+}
+
+function getMilestoneTodoCount(goalId){
+  return state.tasks.filter(task => task.goal_id === goalId && task.is_cancelled !== true).length;
+}
+
+function renderMilestones(){
+  const search = normalizeSearch(plannerFilters.milestones.search);
+  const matchesMilestoneFilter = goal => {
+    if(!search) return true;
+    const goalTheme = getGoalThemeForTarget(goal);
+    return [goal.title, goalTheme?.title, goal.target_completion_date]
+      .some(value => normalizeSearch(value).includes(search));
+  };
+  const pendingMilestones = sortMilestoneList(state.goals.filter(goal => !goal.is_done && !goal.is_cancelled && matchesMilestoneFilter(goal)));
+  const doneMilestones = sortMilestoneList(state.goals.filter(goal => goal.is_done && !goal.is_cancelled && matchesMilestoneFilter(goal)));
+  const cancelledMilestones = sortMilestoneList(state.goals.filter(goal => goal.is_cancelled && matchesMilestoneFilter(goal)));
+
+  const msPending = document.getElementById('ms-pending');
+  const msDone = document.getElementById('ms-done');
+  const msCancelled = document.getElementById('ms-cancelled');
+  const msTotal = document.getElementById('ms-total');
+  if(msPending) msPending.textContent = state.goals.filter(goal => !goal.is_done && !goal.is_cancelled).length;
+  if(msDone) msDone.textContent = state.goals.filter(goal => goal.is_done && !goal.is_cancelled).length;
+  if(msCancelled) msCancelled.textContent = state.goals.filter(goal => goal.is_cancelled).length;
+  if(msTotal) msTotal.textContent = state.goals.length;
+
+  const pendingBody = document.getElementById('milestones-pending-tbody');
+  if(pendingBody){
+    pendingBody.innerHTML = pendingMilestones.length ? pendingMilestones.map(goal => `
+      <tr class="${goal.is_urgent || goal.is_important ? 'hl-row' : ''}">
+        <td class="c"><div class="cb" onclick="toggleGoal('${goal.id}')"></div></td>
+        <td style="min-width:180px">${renderMilestoneTitle(goal)}</td>
+        <td class="c"><div class="flag f-imp ${goal.is_important ? 'on' : ''}" onclick="toggleGoalFlag('${goal.id}','important')">${icoI(goal.is_important)}</div></td>
+        <td class="c"><div class="flag f-urg ${goal.is_urgent ? 'on' : ''}" onclick="toggleGoalFlag('${goal.id}','urgent')">${icoU(goal.is_urgent)}</div></td>
+        <td>${getGoalThemeForTarget(goal)?.title ? areaChip(getGoalThemeForTarget(goal).title) : '<span class="mu">—</span>'}</td>
+        <td class="mu">${getMilestoneTodoCount(goal.id)}</td>
+        <td class="mu"><input class="ec mu" type="date" value="${goal.target_completion_date || ''}" onchange="editGoal('${goal.id}','target_completion_date',this.value)" /></td>
+        <td class="mu" style="font-size:11px">${fmtFull(goal.created_at?.slice(0,10))}</td>
+        <td class="c"><button class="del-btn" onclick="deleteGoal('${goal.id}')">×</button></td>
+        <td class="c"><div class="cb ${goal.is_cancelled ? 'checked' : ''}" onclick="toggleGoalCancelled('${goal.id}')"></div></td>
+      </tr>
+    `).join('') : '<tr><td colspan="10"><div class="empty-state">No pending milestones.</div></td></tr>';
+  }
+
+  const doneBody = document.getElementById('milestones-done-tbody');
+  if(doneBody){
+    doneBody.innerHTML = doneMilestones.length ? doneMilestones.map(goal => `
+      <tr>
+        <td class="c"><div class="cb checked" onclick="toggleGoal('${goal.id}')"></div></td>
+        <td>${renderMilestoneTitle(goal)}</td>
+        <td>${getGoalThemeForTarget(goal)?.title ? areaChip(getGoalThemeForTarget(goal).title) : '<span class="mu">—</span>'}</td>
+        <td class="mu">${getMilestoneTodoCount(goal.id)}</td>
+        <td class="mu" style="font-size:11.5px">${goal.target_completion_date ? fmtFull(goal.target_completion_date) : 'No deadline'}</td>
+        <td class="mu" style="font-size:11px">${fmtFull(goal.created_at?.slice(0,10))}</td>
+        <td class="mu" style="font-size:11px">${fmtFull(goal.completed_at)}</td>
+        <td class="c"><button class="del-btn" onclick="deleteGoal('${goal.id}')">×</button></td>
+        <td class="c"><div class="cb ${goal.is_cancelled ? 'checked' : ''}" onclick="toggleGoalCancelled('${goal.id}')"></div></td>
+      </tr>
+    `).join('') : '<tr><td colspan="9"><div class="empty-state">No completed milestones.</div></td></tr>';
+  }
+
+  const cancelledBody = document.getElementById('milestones-cancelled-tbody');
+  if(cancelledBody){
+    cancelledBody.innerHTML = cancelledMilestones.length ? cancelledMilestones.map(goal => `
+      <tr>
+        <td class="c"><div class="cb ${goal.is_done ? 'checked' : ''}" onclick="toggleGoal('${goal.id}')"></div></td>
+        <td>${renderMilestoneTitle(goal)}</td>
+        <td>${getGoalThemeForTarget(goal)?.title ? areaChip(getGoalThemeForTarget(goal).title) : '<span class="mu">—</span>'}</td>
+        <td class="mu">${getMilestoneTodoCount(goal.id)}</td>
+        <td class="mu" style="font-size:11.5px">${goal.target_completion_date ? fmtFull(goal.target_completion_date) : 'No deadline'}</td>
+        <td class="mu" style="font-size:11px">${fmtFull(goal.created_at?.slice(0,10))}</td>
+        <td class="c"><button class="del-btn" onclick="deleteGoal('${goal.id}')">×</button></td>
+        <td class="c"><div class="cb checked" onclick="toggleGoalCancelled('${goal.id}')"></div></td>
+      </tr>
+    `).join('') : '<tr><td colspan="8"><div class="empty-state">No cancelled milestones.</div></td></tr>';
+  }
+}
+
+async function addMilestoneInline(){
+  const titleEl = document.getElementById('ms-name');
+  const goalEl = document.getElementById('ms-goal');
+  const deadlineEl = document.getElementById('ms-deadline');
   const title = titleEl ? titleEl.value.trim() : '';
   if(!title) return;
-  const area = document.getElementById('ct-goal')?.value || null;
-  const targetCompletionDate = document.getElementById('ct-target-date')?.value || null;
   try{
-    const sortOrder = state.goals.length;
+    const goalThemeId = goalEl?.value || null;
     const data = await apiPost('/goals', {
       title,
-      area: area || null,
-      target_completion_date: targetCompletionDate,
+      goal_theme_id: goalThemeId,
+      area: getGoalThemeById(goalThemeId)?.title || null,
+      target_completion_date: deadlineEl?.value || null,
+      sort_order: state.goals.length,
       is_important: false,
       is_urgent: false,
-      sort_order: sortOrder,
       is_done: false,
       is_cancelled: false,
       is_active: true,
     });
     state.goals.push(data);
     if(titleEl) titleEl.value = '';
-    const ctGoal = document.getElementById('ct-goal');
-    if(ctGoal) ctGoal.value = '';
-    const ctTarget = document.getElementById('ct-target-date');
-    if(ctTarget) ctTarget.value = '';
+    if(goalEl) goalEl.value = '';
+    if(deadlineEl) deadlineEl.value = '';
+    refreshPlannerSelectOptions();
     renderGoals();
-    showToast('Goal added');
+    renderMilestones();
+    renderTodos();
+    showToast('Milestone added');
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function addTargetForGoalTheme(goalThemeId){
+  const titleEl = document.getElementById(`target-name-${goalThemeId}`);
+  const dateEl = document.getElementById(`target-date-${goalThemeId}`);
+  const title = titleEl ? titleEl.value.trim() : '';
+  if(!title) return;
+  try{
+    const data = await apiPost('/goals', {
+      title,
+      goal_theme_id: goalThemeId,
+      area: getGoalThemeById(goalThemeId)?.title || null,
+      target_completion_date: dateEl?.value || null,
+      sort_order: state.goals.length,
+      is_important: false,
+      is_urgent: false,
+      is_done: false,
+      is_cancelled: false,
+      is_active: true,
+    });
+    state.goals.push(data);
+    if(titleEl) titleEl.value = '';
+    if(dateEl) dateEl.value = '';
+    refreshPlannerSelectOptions();
+    renderGoals();
+    renderMilestones();
+    renderTodos();
+    showToast('Milestone added');
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -801,13 +1309,15 @@ async function addCoreTask(){
 
 async function editGoal(goalId, field, value){
   const updates = { updated_at: new Date().toISOString() };
-  updates[field] = value || null;
-  if(field === 'title') updates[field] = value.trim();
+  updates[field] = field === 'title' ? value.trim() : (value || null);
   try{
     await apiPut('/goals/' + goalId, updates);
     const goal = getGoalById(goalId);
-    if(goal) goal[field] = updates[field];
+    if(goal) Object.assign(goal, updates);
+    refreshPlannerSelectOptions();
     renderGoals();
+    renderMilestones();
+    renderTodos();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -821,7 +1331,10 @@ async function toggleGoal(goalId){
     await apiPut('/goals/' + goalId, { is_done: nextValue, is_cancelled: false, updated_at: new Date().toISOString() });
     goal.is_done = nextValue;
     goal.is_cancelled = false;
+    refreshPlannerSelectOptions();
     renderGoals();
+    renderMilestones();
+    renderTodos();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -835,7 +1348,10 @@ async function toggleGoalCancelled(goalId){
     await apiPut('/goals/' + goalId, { is_cancelled: nextValue, is_done: nextValue ? false : goal.is_done, updated_at: new Date().toISOString() });
     goal.is_cancelled = nextValue;
     if(nextValue) goal.is_done = false;
+    refreshPlannerSelectOptions();
     renderGoals();
+    renderMilestones();
+    renderTodos();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -852,6 +1368,7 @@ async function toggleGoalFlag(goalId, flag){
     await apiPut('/goals/' + goalId, { [field]: nextValue, updated_at: new Date().toISOString() });
     goal[field] = nextValue;
     renderGoals();
+    renderMilestones();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -861,6 +1378,79 @@ async function deleteGoal(goalId){
   try{
     await apiDelete('/goals/' + goalId);
     state.goals = state.goals.filter(goal => goal.id !== goalId);
+    state.tasks = state.tasks.map(task => task.goal_id === goalId ? { ...task, goal_id: null } : task);
+    refreshPlannerSelectOptions();
+    renderGoals();
+    renderMilestones();
+    renderTodos();
+    showToast('Milestone deleted');
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function editGoalTheme(goalThemeId, field, value){
+  const updates = { updated_at: new Date().toISOString() };
+  updates[field] = field === 'title' ? value.trim() : (value || null);
+  try{
+    await apiPut('/goal-themes/' + goalThemeId, updates);
+    const goalTheme = getGoalThemeById(goalThemeId);
+    if(goalTheme) Object.assign(goalTheme, updates);
+    if(field === 'title'){
+      state.goals.forEach(goal => {
+        if(goal.goal_theme_id === goalThemeId) goal.goal_theme_title = updates.title;
+      });
+    }
+    refreshPlannerSelectOptions();
+    renderGoals();
+    renderMilestones();
+    renderTodos();
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function toggleGoalTheme(goalThemeId){
+  const goalTheme = getGoalThemeById(goalThemeId);
+  if(!goalTheme) return;
+  const nextValue = !goalTheme.is_done;
+  try{
+    await apiPut('/goal-themes/' + goalThemeId, { is_done: nextValue, is_cancelled: false, updated_at: new Date().toISOString() });
+    goalTheme.is_done = nextValue;
+    goalTheme.is_cancelled = false;
+    refreshPlannerSelectOptions();
+    renderGoals();
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function toggleGoalThemeCancelled(goalThemeId){
+  const goalTheme = getGoalThemeById(goalThemeId);
+  if(!goalTheme) return;
+  const nextValue = !goalTheme.is_cancelled;
+  try{
+    await apiPut('/goal-themes/' + goalThemeId, { is_cancelled: nextValue, is_done: nextValue ? false : goalTheme.is_done, updated_at: new Date().toISOString() });
+    goalTheme.is_cancelled = nextValue;
+    if(nextValue) goalTheme.is_done = false;
+    refreshPlannerSelectOptions();
+    renderGoals();
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function deleteGoalTheme(goalThemeId){
+  try{
+    await apiDelete('/goal-themes/' + goalThemeId);
+    state.goalThemes = state.goalThemes.filter(goalTheme => goalTheme.id !== goalThemeId);
+    state.goals.forEach(goal => {
+      if(goal.goal_theme_id === goalThemeId){
+        goal.goal_theme_id = null;
+        goal.goal_theme_title = null;
+      }
+    });
+    refreshPlannerSelectOptions();
     renderGoals();
     renderTodos();
     showToast('Goal deleted');
@@ -874,16 +1464,15 @@ async function deleteGoal(goalId){
 function renderTodos(){
   const search = normalizeSearch(plannerFilters.todos.search);
   const filter = plannerFilters.todos.category;
-  const areaFilter = plannerFilters.todos.area;
   let pending = state.tasks.filter(task => !task.is_done && !task.is_cancelled);
   let done = state.tasks.filter(task => task.is_done && !task.is_cancelled);
   let cancelled = state.tasks.filter(task => task.is_cancelled);
   const matchesTaskFilter = task => {
     if(filter && task.category !== filter) return false;
-    if(areaFilter && task.area !== areaFilter) return false;
     if(search){
-      const goalTitle = getGoalById(task.goal_id)?.title || '';
-      if(![task.title, task.category, task.area, goalTitle].some(value => normalizeSearch(value).includes(search))) return false;
+      const targetTitle = getGoalById(task.goal_id)?.title || '';
+      const goalThemeTitle = getGoalThemeForTask(task)?.title || '';
+      if(![task.title, task.category, targetTitle, goalThemeTitle].some(value => normalizeSearch(value).includes(search))) return false;
     }
     return true;
   };
@@ -922,7 +1511,8 @@ function renderTodos(){
         else if(due !== null && due < 0){deadlineLabel = `${Math.abs(due)}d overdue`; deadlineClass = 'ov';}
         else if(task.deadline) deadlineLabel = fmtFull(task.deadline);
         const highlighted = task.urgent || task.important;
-        const goal = getGoalById(task.goal_id);
+        const target = getGoalById(task.goal_id);
+        const goalTheme = getGoalThemeForTask(task);
         const canMove = !!task.dayItem && task.dayItem.status === 'planned';
         return `
           <tr class="${highlighted ? 'hl-row' : ''}${task.highlight ? ' hl-bg' : ''}">
@@ -932,15 +1522,14 @@ function renderTodos(){
               <div style="display:flex;flex-direction:column;gap:4px">
                 <input class="ec" style="${highlighted ? 'font-weight:600' : ''}" value="${esc(task.title)}" onchange="editTask('${task.id}','title',this.value)" />
                 ${task.recurrenceSummary ? `<span class="mu" style="font-size:10.5px;display:flex;align-items:center;gap:4px"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(task.recurrenceSummary)}</span>` : ''}
+                ${renderTaskHierarchyMeta(task)}
               </div>
             </td>
             <td class="c"><div class="flag f-today ${task.today ? 'on' : ''}" onclick="toggleFlag('${task.id}','today')">${icoT(task.today)}</div></td>
             <td class="c"><div class="flag f-imp ${task.important ? 'on' : ''}" onclick="toggleFlag('${task.id}','important')">${icoI(task.important)}</div></td>
             <td class="c"><div class="flag f-urg ${task.urgent ? 'on' : ''}" onclick="toggleFlag('${task.id}','urgent')">${icoU(task.urgent)}</div></td>
-            <td><select class="isel" style="max-width:115px" onchange="editTaskGoal('${task.id}',this.value)">${goalOptions.replace(`value="${task.goal_id || ''}"`, `value="${task.goal_id || ''}" selected`)}</select></td>
-            <td><select class="isel chip-select ${areaChipClass(task.area)}" onchange="editTask('${task.id}','area',this.value)">
-              <option value="">—</option>${AREAS.map(area => `<option value="${esc(area)}"${task.area === area ? ' selected' : ''}>${esc(area)}</option>`).join('')}
-            </select></td>
+            <td><select class="isel" style="max-width:135px" onchange="editTaskGoal('${task.id}',this.value)">${goalOptions.replace(`value="${task.goal_id || ''}"`, `value="${task.goal_id || ''}" selected`)}</select></td>
+            <td>${goalTheme ? `<span class="chip chip-gray">${esc(goalTheme.title)}</span>` : '<span class="mu">—</span>'}</td>
             <td class="${deadlineClass}"><input class="ec mu" type="date" value="${task.deadline || ''}" onchange="editTask('${task.id}','deadline',this.value)" /></td>
             <td>${canMove ? `<button class="btn-ghost" onclick="openMoveTaskModal('${task.id}')">Move</button>` : '<span class="mu">—</span>'}</td>
             <td class="mu" style="font-size:11px">${fmtFull(task.created_at?.slice(0,10))}</td>
@@ -961,8 +1550,8 @@ function renderTodos(){
         <tr>
           <td class="c"><div class="cb checked" onclick="toggleTodo('${task.id}')"></div></td>
           <td>${catChip(task.category)}</td>
-          <td>${renderTaskTitle(task)}</td>
-          <td>${areaChip(task.area)}</td>
+          <td>${renderTaskTitle(task)}${renderTaskHierarchyMeta(task)}</td>
+          <td>${getGoalThemeForTask(task)?.title ? `<span class="chip chip-gray">${esc(getGoalThemeForTask(task).title)}</span>` : '<span class="mu">—</span>'}</td>
           <td class="mu" style="font-size:11.5px">${fmtFull(task.deadline)}</td>
           <td class="mu" style="font-size:11px">${fmtFull(task.created_at?.slice(0,10))}</td>
           <td class="mu" style="font-size:11px">${fmtFull(task.completed_at)}</td>
@@ -982,8 +1571,8 @@ function renderTodos(){
         <tr>
           <td class="c"><div class="cb ${task.is_done ? 'checked' : ''}" onclick="toggleTodo('${task.id}')"></div></td>
           <td>${catChip(task.category)}</td>
-          <td>${renderTaskTitle(task)}</td>
-          <td>${areaChip(task.area)}</td>
+          <td>${renderTaskTitle(task)}${renderTaskHierarchyMeta(task)}</td>
+          <td>${getGoalThemeForTask(task)?.title ? `<span class="chip chip-gray">${esc(getGoalThemeForTask(task).title)}</span>` : '<span class="mu">—</span>'}</td>
           <td class="mu" style="font-size:11.5px">${fmtFull(task.deadline)}</td>
           <td class="mu" style="font-size:11px">${fmtFull(task.created_at?.slice(0,10))}</td>
           <td class="c"><button class="del-btn" onclick="deleteTask('${task.id}')">×</button></td>
@@ -1016,7 +1605,7 @@ async function addTodo(){
       title,
       category: document.getElementById('td-cat')?.value || null,
       area: null,
-      goal_id: null,
+      goal_id: document.getElementById('td-goal')?.value || null,
       deadline: deadlineValue,
       recurrence,
       is_done: false,
@@ -1029,9 +1618,11 @@ async function addTodo(){
     if(deadlineEl) deadlineEl.value = '';
     const repeatEl = document.getElementById('td-repeat');
     if(repeatEl) repeatEl.value = 'none';
+    const goalEl = document.getElementById('td-goal');
+    if(goalEl) goalEl.value = '';
     syncInlineTaskRecurrenceFields();
     renderTodos();
-    showToast('Task added');
+    showToast('To-do added');
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -1205,7 +1796,7 @@ async function deleteTask(taskId){
     renderTodos();
     renderTodayTodos();
     renderSummaryPills();
-    showToast('Task deleted');
+    showToast('To-do deleted');
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -1239,7 +1830,7 @@ function renderTodayTodos(){
         <tr class="${item.is_highlight ? 'hl-bg' : ''}">
           <td class="c"><div class="cb" onclick="todayToggleDone('${item.task_id}')"></div></td>
           <td>${catChip(item.category_snapshot)}</td>
-          <td style="font-weight:${item.is_highlight ? 700 : 400}">${esc(item.title_snapshot)}</td>
+          <td class="schedule-quick-fill-cell"><button class="schedule-quick-fill${item.is_highlight ? ' is-highlight' : ''}" type="button" title="Click to add this task to the schedule" data-task-id="${esc(item.task_id)}" data-title="${esc(item.title_snapshot)}" onmousedown="event.preventDefault()" onclick="insertTodoIntoSchedule(this.dataset.taskId, this.dataset.title)">${esc(item.title_snapshot)}</button></td>
           <td><button class="btn-ghost" onclick="openMoveTaskModal('${item.task_id}','${item.id}')">Move</button></td>
           <td class="c"><div class="cb-star ${item.is_highlight ? 'on' : ''}" onclick="toggleHighlight('${item.task_id}')">${icoStar(item.is_highlight)}</div></td>
         </tr>
@@ -1454,6 +2045,7 @@ function toggleAutoTime(){
 async function loadSchedule(){
   try{
     await loadCurrentDateItems();
+    renderScheduleQuickActivities();
     renderTodos();
     renderTodayTodos();
     renderSched(getSelectedDate());
@@ -1481,9 +2073,42 @@ function renderSched(dateKey){
   bindScheduleKeyboardNavigation();
 }
 
+function getFocusedScheduleActivityInput(){
+  const active = document.activeElement;
+  if(!(active instanceof HTMLInputElement)) return null;
+  if(!active.classList.contains('sched-cell-input')) return null;
+  if(active.dataset.field !== 'title_snapshot') return null;
+  return document.body.contains(active) ? active : null;
+}
+
+function rememberScheduleActivityFocus(input){
+  if(!(input instanceof HTMLInputElement)) return;
+  if(!input.classList.contains('sched-cell-input')) return;
+  if(input.dataset.field !== 'title_snapshot') return;
+  lastScheduleActivityFocus = {
+    itemId: input.dataset.itemId || '',
+    selectionStart: typeof input.selectionStart === 'number' ? input.selectionStart : (input.value || '').length,
+    selectionEnd: typeof input.selectionEnd === 'number' ? input.selectionEnd : (input.value || '').length,
+  };
+}
+
+function getRememberedScheduleActivityInput(){
+  const itemId = lastScheduleActivityFocus?.itemId;
+  if(!itemId) return null;
+  const input = document.querySelector(`#sched-grid .sched-cell-input[data-item-id="${itemId}"][data-field="title_snapshot"]`);
+  return input instanceof HTMLInputElement ? input : null;
+}
+
 function bindScheduleKeyboardNavigation(){
   if(scheduleKeyboardBound) return;
   scheduleKeyboardBound = true;
+
+  document.addEventListener('focusin', event => {
+    const target = event.target;
+    if(target instanceof HTMLInputElement && target.classList.contains('sched-cell-input') && target.dataset.field === 'title_snapshot'){
+      rememberScheduleActivityFocus(target);
+    }
+  });
 
   document.addEventListener('keydown', async event => {
     const target = event.target;
@@ -1573,7 +2198,64 @@ function focusScheduleCell(cell){
   }
 }
 
+function appendTextToScheduleActivityInput(input, text){
+  if(!(input instanceof HTMLInputElement)) return null;
+  const nextText = String(text || '').trim();
+  if(!nextText) return null;
+
+  const currentValue = input.value || '';
+  const pending = pendingScheduleActivityInsert && pendingScheduleActivityInsert.itemId === input.dataset.itemId
+    ? pendingScheduleActivityInsert
+    : null;
+  const selectionStart = typeof pending?.selectionStart === 'number'
+    ? pending.selectionStart
+    : (typeof input.selectionStart === 'number' ? input.selectionStart : currentValue.length);
+  const selectionEnd = typeof pending?.selectionEnd === 'number'
+    ? pending.selectionEnd
+    : (typeof input.selectionEnd === 'number' ? input.selectionEnd : selectionStart);
+  const before = currentValue.slice(0, selectionStart);
+  const after = currentValue.slice(selectionEnd);
+  const needsPrefix = before.trim().length > 0 && !/[;,\s]$/.test(before);
+  const needsSuffix = after.trim().length > 0 && !/^[;,\s]/.test(after);
+  const insertedText = `${needsPrefix ? '; ' : ''}${nextText}${needsSuffix ? '; ' : ''}`;
+  const value = `${before}${insertedText}${after}`;
+  const caret = before.length + insertedText.length;
+  return { value, caret };
+}
+
+async function insertScheduleTextOrAddRow(titleSnapshot){
+  const nextTitle = String(titleSnapshot || '').trim();
+  if(!nextTitle) return;
+
+  const focusedActivity = getFocusedScheduleActivityInput() || getRememberedScheduleActivityInput();
+  if(focusedActivity){
+    const itemId = focusedActivity.dataset.itemId;
+    const appended = appendTextToScheduleActivityInput(focusedActivity, nextTitle);
+    if(!itemId || !appended) return;
+    focusedActivity.value = appended.value;
+    await updateSlot(itemId, 'title_snapshot', appended.value);
+    focusedActivity.focus();
+    if(typeof focusedActivity.setSelectionRange === 'function'){
+      focusedActivity.setSelectionRange(appended.caret, appended.caret);
+    }
+    rememberScheduleActivityFocus(focusedActivity);
+    pendingScheduleActivityInsert = null;
+    return;
+  }
+
+  pendingScheduleActivityInsert = null;
+  await addSlotWithOptions({
+    titleSnapshot: nextTitle,
+    timeText: autoTime ? nowTime() : '',
+    focusField: 'title_snapshot',
+  });
+}
+
 async function addSlot(){
+  return addSlotWithOptions();
+}
+
+async function addSlotWithOptions(options = {}){
   try{
     const plan = await ensureDailyPlan(getSelectedDate());
     const sortOrder = state.currentDateItems.filter(item => item.item_type === 'schedule_entry').length;
@@ -1582,7 +2264,7 @@ async function addSlot(){
       item_type: 'schedule_entry',
       task_id: null,
       event_id: null,
-      title_snapshot: '',
+      title_snapshot: options.titleSnapshot || '',
       category_snapshot: null,
       area_snapshot: null,
       status: 'planned',
@@ -1590,14 +2272,15 @@ async function addSlot(){
       is_important: false,
       is_urgent: false,
       is_highlight: false,
-      time_text: autoTime ? nowTime() : '',
-      note_text: '',
+      time_text: Object.prototype.hasOwnProperty.call(options, 'timeText') ? options.timeText : (autoTime ? nowTime() : ''),
+      note_text: options.noteText || '',
       sort_order: sortOrder,
       source_plan_item_id: null,
       moved_to_plan_item_id: null,
     };
+    let createdItem;
     try{
-      await apiPost('/daily-plan-items', payload);
+      createdItem = await apiPost('/daily-plan-items', payload);
     } catch(error){
       showPlannerInsertDebug('addSlot', payload, error);
       throw error;
@@ -1605,15 +2288,21 @@ async function addSlot(){
     await loadCurrentDateItems();
     renderSched(getSelectedDate());
     setTimeout(() => {
-      const rows = document.querySelectorAll('#sched-grid .sched-time input');
-      if(rows.length){
-        const input = rows[rows.length - 1];
+      const targetField = options.focusField || 'time_text';
+      let input = createdItem ? document.querySelector(`#sched-grid .sched-cell-input[data-item-id="${createdItem.id}"][data-field="${targetField}"]`) : null;
+      if(!(input instanceof HTMLInputElement)){
+        const rows = document.querySelectorAll(`#sched-grid .sched-cell-input[data-field="${targetField}"]`);
+        input = rows.length ? rows[rows.length - 1] : null;
+      }
+      if(input instanceof HTMLInputElement){
         input.focus();
-        if(autoTime) input.setSelectionRange(input.value.length, input.value.length);
+        input.setSelectionRange(input.value.length, input.value.length);
       }
     }, 50);
+    return createdItem;
   } catch (error){
     showToast(`Error: ${error.message}`, true);
+    return null;
   }
 }
 
@@ -1637,6 +2326,12 @@ async function removeSlot(itemId){
   }
 }
 
+async function insertTodoIntoSchedule(taskId, titleSnapshot){
+  await insertScheduleTextOrAddRow(titleSnapshot);
+}
+
+loadScheduleQuickActivities();
+
 // ─── Topbar / Modal ────────────────────────────────
 
 function updateTopbarForSection(){
@@ -1656,7 +2351,7 @@ function updateTopbarForSection(){
   } else if(currentSection === 'tasks'){
     if(pageTitle) pageTitle.textContent = 'Tasks & Events';
     if(addButton) addButton.style.display = '';
-    const labels = { goals:'+ Add goal', todos:'+ Add to-do', events:'+ Add event' };
+    const labels = { goals:'+ Add goal', milestones:'+ Add milestone', todos:'+ Add to-do', events:'+ Add event' };
     if(addButton) addButton.textContent = labels[currentTab] || '+ Add';
   } else {
     if(pageTitle) pageTitle.textContent = 'Habit Tracker';
@@ -1683,8 +2378,9 @@ function openModal(type){
   modalType = type;
   const titleMap = {
     event: 'Add event',
-    coretask: 'Add goal',
-    todo: 'Add to-do item',
+    goaltheme: 'Add goal',
+    coretask: 'Add milestone',
+    todo: 'Add to-do',
     habit: 'New item',
     move_task: 'Move task',
   };
@@ -1693,7 +2389,7 @@ function openModal(type){
   const modalEl = document.querySelector('#modal-bg .modal');
   if(modalEl) modalEl.classList.remove('habit-modal-wide');
 
-  const areaOpts = `<option value="">— none —</option>${AREAS.map(area => `<option>${esc(area)}</option>`).join('')}`;
+  const goalThemeOpts = `<option value="">— none —</option>${state.goalThemes.filter(goalTheme => !goalTheme.is_done).map(goalTheme => `<option value="${goalTheme.id}">${esc(goalTheme.title)}</option>`).join('')}`;
   const goalOpts = `<option value="">— none —</option>${state.goals.filter(goal => !goal.is_done).map(goal => `<option value="${goal.id}">${esc(goal.title)}</option>`).join('')}`;
 
   let html = '';
@@ -1706,18 +2402,24 @@ function openModal(type){
       <div class="fg"><label>Category</label><select id="m-ev-cat"><option value="">—</option>${EVENT_CATS.map(cat => `<option>${esc(cat)}</option>`).join('')}</select></div>
     </div>`;
     modalSaveHandler = saveEventModal;
+  } else if(type === 'goaltheme'){
+    html = `<div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Goal name</label><input id="m-goaltheme-name" placeholder="e.g. Career"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="m-goaltheme-notes" rows="5" placeholder="Add notes, context, and ideas for this goal"></textarea></div>
+    </div>`;
+    modalSaveHandler = saveGoalThemeModal;
   } else if(type === 'coretask'){
     html = `<div class="form-grid">
-      <div class="fg" style="grid-column:1/-1"><label>Goal name</label><input id="m-ct-name" placeholder="e.g. Learn Vibe Coding"></div>
-      <div class="fg"><label>Area</label><select id="m-ct-goal">${areaOpts}</select></div>
-      <div class="fg"><label>Target completion</label><input id="m-ct-target-date" type="date"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Milestone name</label><input id="m-ct-name" placeholder="e.g. Find a full-time job"></div>
+      <div class="fg"><label>Goal</label><select id="m-ct-goal">${goalThemeOpts}</select></div>
+      <div class="fg"><label>Deadline</label><input id="m-ct-target-date" type="date"></div>
     </div>`;
     modalSaveHandler = saveGoalModal;
   } else if(type === 'todo'){
     html = `<div class="form-grid">
       <div class="fg" style="grid-column:1/-1"><label>Item name</label><input id="m-td-name" placeholder="e.g. Build planner flow"></div>
       <div class="fg"><label>Category</label><select id="m-td-cat">${CATS.map(cat => `<option>${esc(cat)}</option>`).join('')}</select></div>
-      <div class="fg"><label>Area</label><select id="m-td-area">${areaOpts}</select></div>
+      <div class="fg"><label>Linked milestone</label><select id="m-td-linked">${goalOpts}</select></div>
       <div class="fg"><label>Repeat</label><select id="m-td-repeat" onchange="syncTaskRecurrenceFields()">
         <option value="none">Does not repeat</option>
         <option value="weekly">Weekly</option>
@@ -1732,7 +2434,6 @@ function openModal(type){
       <div class="fg" id="m-td-monthday-group" style="display:none"><label>Day of month</label><select id="m-td-monthday">
         ${Array.from({ length: 31 }, (_, index) => `<option value="${index + 1}">${ordinal(index + 1)}</option>`).join('')}
       </select></div>
-      <div class="fg" style="grid-column:1/-1"><label>Linked goal</label><select id="m-td-linked">${goalOpts}</select></div>
     </div>`;
     modalSaveHandler = saveTaskModal;
   } else if(type === 'habit'){
@@ -1813,7 +2514,8 @@ async function saveGoalModal(){
   try{
     const data = await apiPost('/goals', {
       title,
-      area: document.getElementById('m-ct-goal')?.value || null,
+      goal_theme_id: document.getElementById('m-ct-goal')?.value || null,
+      area: getGoalThemeById(document.getElementById('m-ct-goal')?.value || '')?.title || null,
       target_completion_date: document.getElementById('m-ct-target-date')?.value || null,
       sort_order: state.goals.length,
       is_important: false,
@@ -1824,6 +2526,32 @@ async function saveGoalModal(){
     });
     state.goals.push(data);
     closeModal();
+    refreshPlannerSelectOptions();
+    renderGoals();
+    renderMilestones();
+    renderTodos();
+    showToast('Milestone added');
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function saveGoalThemeModal(){
+  const title = document.getElementById('m-goaltheme-name')?.value?.trim();
+  if(!title) return;
+  try{
+    const data = await apiPost('/goal-themes', {
+      title,
+      notes: document.getElementById('m-goaltheme-notes')?.value?.trim() || null,
+      sort_order: state.goalThemes.length,
+      is_done: false,
+      is_cancelled: false,
+      is_active: true,
+    });
+    state.goalThemes.push(data);
+    state.goalThemeExpanded[data.id] = false;
+    closeModal();
+    refreshPlannerSelectOptions();
     renderGoals();
     renderTodos();
     showToast('Goal added');
@@ -1883,7 +2611,7 @@ async function saveTaskModal(){
     const data = await apiPost('/tasks', {
       title,
       category: document.getElementById('m-td-cat')?.value || null,
-      area: document.getElementById('m-td-area')?.value || null,
+      area: getGoalThemeForTarget(getGoalById(document.getElementById('m-td-linked')?.value || ''))?.title || null,
       goal_id: document.getElementById('m-td-linked')?.value || null,
       deadline: dateValue,
       recurrence,
@@ -1894,7 +2622,7 @@ async function saveTaskModal(){
     closeModal();
     renderTodos();
     renderSummaryPills();
-    showToast('Task added');
+    showToast('To-do added');
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -1927,12 +2655,17 @@ async function saveEventModal(){
 
 function renderTagRows(kind, entries){
   return entries.map((entry, index) => `
-    <div class="tag-row">
+    <div class="tag-row ${kind === 'areas' ? 'tag-row-areas' : ''}">
       <input data-tag-kind="${kind}" data-tag-index="${index}" data-tag-field="label" value="${esc(entry.label)}" placeholder="Label">
+      ${kind === 'areas' ? `
+        <select data-tag-kind="${kind}" data-tag-index="${index}" data-tag-field="icon">
+          ${AREA_ICON_OPTIONS.map(option => `<option value="${option.value}"${(entry.icon || 'ti-tag') === option.value ? ' selected' : ''}>${option.label}</option>`).join('')}
+        </select>
+      ` : ''}
       <select data-tag-kind="${kind}" data-tag-index="${index}" data-tag-field="color">
         ${COLOR_OPTIONS.map(option => `<option value="${option.value}"${entry.color === option.value ? ' selected' : ''}>${option.label}</option>`).join('')}
       </select>
-      <span class="chip chip-select tag-color-preview ${entry.color}">${esc(entry.label)}</span>
+      <span class="chip chip-select tag-color-preview ${entry.color}">${kind === 'areas' ? `<i class="ti ${entry.icon || 'ti-tag'}"></i>` : ''}${esc(entry.label)}</span>
     </div>
   `).join('');
 }
@@ -1958,7 +2691,7 @@ function openTagManagerModal(){
   const modalBody = document.getElementById('modal-body');
   if(modalBody) modalBody.innerHTML = `
     <div class="tag-manager">
-      ${renderTagGroup('areas', 'Areas', tagConfig.areas)}
+      ${renderTagGroup('areas', 'Goals', tagConfig.areas)}
       ${renderTagGroup('taskCategories', 'Task categories', tagConfig.taskCategories)}
       ${renderTagGroup('eventCategories', 'Event categories', tagConfig.eventCategories)}
     </div>
@@ -1972,7 +2705,7 @@ function openTagManagerModal(){
   const modalBg = document.getElementById('modal-bg');
   if(modalBg) modalBg.classList.add('open');
 
-  document.querySelectorAll('[data-tag-field="label"], [data-tag-field="color"]').forEach(control => {
+  document.querySelectorAll('[data-tag-field="label"], [data-tag-field="color"], [data-tag-field="icon"]').forEach(control => {
     control.addEventListener('input', refreshTagPreview);
     control.addEventListener('change', refreshTagPreview);
   });
@@ -1986,7 +2719,7 @@ function addTagRow(kind){
   wrapper.innerHTML = renderTagRows(kind, [{ label:'', color:'chip-gray' }]).replaceAll('data-tag-index="0"', `data-tag-index="${nextIndex}"`);
   const row = wrapper.firstElementChild;
   group.appendChild(row);
-  row.querySelectorAll('[data-tag-field="label"], [data-tag-field="color"]').forEach(control => {
+  row.querySelectorAll('[data-tag-field="label"], [data-tag-field="color"], [data-tag-field="icon"]').forEach(control => {
     control.addEventListener('input', refreshTagPreview);
     control.addEventListener('change', refreshTagPreview);
   });
@@ -1999,9 +2732,10 @@ function refreshTagPreview(event){
   if(!row) return;
   const labelInput = row.querySelector('[data-tag-field="label"]');
   const colorSelect = row.querySelector('[data-tag-field="color"]');
+  const iconSelect = row.querySelector('[data-tag-field="icon"]');
   const preview = row.querySelector('.tag-color-preview');
   if(preview && labelInput && colorSelect){
-    preview.textContent = labelInput.value.trim() || 'Preview';
+    preview.innerHTML = `${iconSelect ? `<i class="ti ${iconSelect.value || 'ti-tag'}"></i>` : ''}${esc(labelInput.value.trim() || 'Preview')}`;
     preview.className = `chip chip-select tag-color-preview ${colorSelect.value}`;
   }
 }
@@ -2025,6 +2759,7 @@ async function saveTagManagerModal(){
       .map(([, entry]) => ({
         label: String(entry.label || '').trim(),
         color: entry.color || 'chip-gray',
+        ...(kind === 'areas' ? { icon: entry.icon || 'ti-tag' } : {}),
       }));
     if(entries.some(entry => !entry.label)){
       showToast('Tag labels cannot be blank.', true);
@@ -2054,7 +2789,12 @@ async function saveTagManagerModal(){
     .filter(entry => entry.next && entry.prev !== entry.next);
 
   const renamesObj = {};
-  if(areaRenames.length) renamesObj.areas = areaRenames;
+  if(areaRenames.length){
+    renamesObj['goal_themes.title'] = areaRenames;
+    renamesObj['goals.area'] = areaRenames;
+    renamesObj['tasks.area'] = areaRenames;
+    renamesObj['daily_plan_items.area_snapshot'] = areaRenames;
+  }
   if(taskCategoryRenames.length) renamesObj.task_categories = taskCategoryRenames;
   if(eventCategoryRenames.length) renamesObj.event_categories = eventCategoryRenames;
 
@@ -2068,6 +2808,10 @@ async function saveTagManagerModal(){
 
     // Apply renames to local state
     if(areaRenames.length){
+      state.goalThemes.forEach(goalTheme => {
+        const rename = areaRenames.find(entry => entry.prev === goalTheme.title);
+        if(rename) goalTheme.title = rename.next;
+      });
       state.goals.forEach(goal => {
         const rename = areaRenames.find(entry => entry.prev === goal.area);
         if(rename) goal.area = rename.next;
@@ -2081,7 +2825,6 @@ async function saveTagManagerModal(){
         if(rename) item.area_snapshot = rename.next;
       });
     }
-
     if(taskCategoryRenames.length){
       state.tasks.forEach(task => {
         const rename = taskCategoryRenames.find(entry => entry.prev === task.category);
@@ -2100,9 +2843,9 @@ async function saveTagManagerModal(){
       });
     }
 
-    tagConfig = nextConfig;
+    tagConfig = { ...tagConfig, ...nextConfig };
     applyTagConfig();
-    renderStaticOptions();
+    refreshPlannerSelectOptions();
     closeModal();
     renderAll();
     showToast('Tags updated');
@@ -2118,7 +2861,7 @@ async function moveTaskToDate(taskId, sourceItemId = null){
   const sourceItem = getMovableTaskSourceItem(taskId, sourceItemId);
   const sourceDate = sourceItem?.source_plan_date || getSelectedDate();
   if(!targetDate){
-    showToast('Please choose a target date.', true);
+    showToast('Please choose a date.', true);
     return;
   }
   if(targetDate === sourceDate){

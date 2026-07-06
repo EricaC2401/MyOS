@@ -69,10 +69,25 @@ class StoredHabitCategory:
 
 
 @dataclass(frozen=True)
+class StoredGoalTheme:
+    id: str
+    title: str
+    notes: str | None
+    is_done: bool
+    is_cancelled: bool
+    is_active: bool
+    sort_order: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
 class StoredGoal:
     id: str
     title: str
     area: str | None
+    goal_theme_id: str | None
+    goal_theme_title: str | None
     target_completion_date: date | None
     is_important: bool
     is_urgent: bool
@@ -215,11 +230,27 @@ def _row_to_habit_category(row: dict) -> StoredHabitCategory:
     )
 
 
+def _row_to_goal_theme(row: dict) -> StoredGoalTheme:
+    return StoredGoalTheme(
+        id=str(row["id"]),
+        title=row["title"],
+        notes=row.get("notes"),
+        is_done=row["is_done"],
+        is_cancelled=row["is_cancelled"],
+        is_active=row["is_active"],
+        sort_order=row.get("sort_order"),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
 def _row_to_goal(row: dict) -> StoredGoal:
     return StoredGoal(
         id=str(row["id"]),
         title=row["title"],
         area=row.get("area"),
+        goal_theme_id=str(row["goal_theme_id"]) if row.get("goal_theme_id") else None,
+        goal_theme_title=row.get("goal_theme_title"),
         target_completion_date=row.get("target_completion_date"),
         is_important=row["is_important"],
         is_urgent=row["is_urgent"],
@@ -331,7 +362,17 @@ def _row_to_daily_plan_item(row: dict) -> StoredDailyPlanItem:
 _HABIT_COLS = "id, name, description, type, target, tracking_days, category, icon, is_active, sort_order, created_at, updated_at"
 _HABIT_ENTRY_COLS = "id, habit_id, entry_date, is_done, notes, created_at, updated_at"
 _HABIT_CAT_COLS = "id, name, icon, color_key, sort_order, created_at"
-_GOAL_COLS = "id, title, area, target_completion_date, is_important, is_urgent, is_done, is_cancelled, is_active, sort_order, created_at, updated_at"
+_GOAL_THEME_COLS = "id, title, notes, is_done, is_cancelled, is_active, sort_order, created_at, updated_at"
+_GOAL_COLS = (
+    "g.id, g.title, g.area, g.goal_theme_id, gt.title as goal_theme_title, "
+    "g.target_completion_date, g.is_important, g.is_urgent, g.is_done, "
+    "g.is_cancelled, g.is_active, g.sort_order, g.created_at, g.updated_at"
+)
+_GOAL_COLS_LEGACY = (
+    "g.id, g.title, g.area, null::uuid as goal_theme_id, null::text as goal_theme_title, "
+    "g.target_completion_date, g.is_important, g.is_urgent, g.is_done, "
+    "g.is_cancelled, g.is_active, g.sort_order, g.created_at, g.updated_at"
+)
 _RECURRING_TASK_COLS = (
     "id, title, category, area, goal_id, repeat_unit, repeat_every, weekday, "
     "day_of_month, start_date, is_active, created_at, updated_at"
@@ -536,16 +577,126 @@ def delete_habit_category(cat_id: str) -> bool:
 
 
 # ===================================================================
+# GOAL THEMES / TARGETS SCHEMA
+# ===================================================================
+
+def _has_goal_theme_schema(conn: PGConnection) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select
+                exists (
+                    select 1
+                    from information_schema.columns
+                    where table_schema = 'public'
+                      and table_name = 'goals'
+                      and column_name = 'goal_theme_id'
+                ) as has_goal_theme_id,
+                to_regclass('public.goal_themes') is not null as has_goal_themes_table;
+            """
+        )
+        row = cur.fetchone()
+    return bool(row and row["has_goal_theme_id"] and row["has_goal_themes_table"])
+
+
+def _require_goal_theme_schema(conn: PGConnection) -> None:
+    if not _has_goal_theme_schema(conn):
+        raise DatabaseSchemaError(
+            "Planner goals and targets require the latest planner SQL migration. "
+            "Run `sql/033_add_goal_themes.sql` in Supabase, then reload the app."
+        )
+
+
+# ===================================================================
+# GOAL THEMES
+# ===================================================================
+
+def fetch_goal_themes(*, active_only: bool = True) -> list[StoredGoalTheme]:
+    def op(conn):
+        _require_goal_theme_schema(conn)
+        sql = f"select {_GOAL_THEME_COLS} from public.goal_themes"
+        if active_only:
+            sql += " where is_active = true"
+        sql += " order by sort_order asc nulls first, created_at asc;"
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            return [_row_to_goal_theme(r) for r in cur.fetchall()]
+    return _run_with_reconnect(op)
+
+
+def fetch_goal_theme_by_id(goal_theme_id: str) -> StoredGoalTheme | None:
+    def op(conn):
+        _require_goal_theme_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(f"select {_GOAL_THEME_COLS} from public.goal_themes where id = %s;", (goal_theme_id,))
+            row = cur.fetchone()
+        return _row_to_goal_theme(row) if row else None
+    return _run_with_reconnect(op)
+
+
+def insert_goal_theme(data) -> StoredGoalTheme:
+    sql = f"""
+        insert into public.goal_themes (title, notes, is_done, is_cancelled, is_active, sort_order)
+        values (%s, %s, %s, %s, %s, %s)
+        returning {_GOAL_THEME_COLS};
+    """
+    params = (data.title, data.notes, data.is_done, data.is_cancelled, data.is_active, data.sort_order)
+
+    def op(conn):
+        _require_goal_theme_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            row = cur.fetchone()
+        conn.commit()
+        return _row_to_goal_theme(row)
+    return _run_with_reconnect(op)
+
+
+def update_goal_theme(goal_theme_id: str, fields: dict) -> StoredGoalTheme | None:
+    allowed = {"title", "notes", "is_done", "is_cancelled", "is_active", "sort_order"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return fetch_goal_theme_by_id(goal_theme_id)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    sql = f"update public.goal_themes set {set_clause}, updated_at = now() where id = %s returning {_GOAL_THEME_COLS};"
+    params = list(updates.values()) + [goal_theme_id]
+
+    def op(conn):
+        _require_goal_theme_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            row = cur.fetchone()
+        conn.commit()
+        return _row_to_goal_theme(row) if row else None
+    return _run_with_reconnect(op)
+
+
+def delete_goal_theme(goal_theme_id: str) -> bool:
+    sql = "delete from public.goal_themes where id = %s;"
+
+    def op(conn):
+        _require_goal_theme_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(sql, (goal_theme_id,))
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    return _run_with_reconnect(op)
+
+
+# ===================================================================
 # GOALS
 # ===================================================================
 
 def fetch_goals(*, active_only: bool = True) -> list[StoredGoal]:
-    sql = f"select {_GOAL_COLS} from public.goals"
-    if active_only:
-        sql += " where is_active = true"
-    sql += " order by sort_order asc nulls first, created_at asc;"
-
     def op(conn):
+        if _has_goal_theme_schema(conn):
+            sql = f"select {_GOAL_COLS} from public.goals g left join public.goal_themes gt on gt.id = g.goal_theme_id"
+        else:
+            sql = f"select {_GOAL_COLS_LEGACY} from public.goals g"
+        if active_only:
+            sql += " where g.is_active = true"
+        sql += " order by g.sort_order asc nulls first, g.created_at asc;"
         with conn.cursor() as cur:
             cur.execute(sql)
             return [_row_to_goal(r) for r in cur.fetchall()]
@@ -553,46 +704,75 @@ def fetch_goals(*, active_only: bool = True) -> list[StoredGoal]:
 
 
 def insert_goal(data: GoalData) -> StoredGoal:
-    sql = f"""
-        insert into public.goals (title, area, target_completion_date, is_important, is_urgent, is_done, is_cancelled, is_active, sort_order)
-        values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        returning {_GOAL_COLS};
-    """
-    params = (data.title, data.area, data.target_completion_date, data.is_important,
-              data.is_urgent, data.is_done, data.is_cancelled, data.is_active, data.sort_order)
-
     def op(conn):
+        has_goal_theme_schema = _has_goal_theme_schema(conn)
+        if not has_goal_theme_schema and data.goal_theme_id is not None:
+            _require_goal_theme_schema(conn)
+        if has_goal_theme_schema:
+            sql = """
+                insert into public.goals (
+                    title, area, goal_theme_id, target_completion_date, is_important,
+                    is_urgent, is_done, is_cancelled, is_active, sort_order
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                returning id;
+            """
+            params = (
+                data.title, data.area, data.goal_theme_id, data.target_completion_date, data.is_important,
+                data.is_urgent, data.is_done, data.is_cancelled, data.is_active, data.sort_order,
+            )
+        else:
+            sql = """
+                insert into public.goals (
+                    title, area, target_completion_date, is_important, is_urgent,
+                    is_done, is_cancelled, is_active, sort_order
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                returning id;
+            """
+            params = (
+                data.title, data.area, data.target_completion_date, data.is_important,
+                data.is_urgent, data.is_done, data.is_cancelled, data.is_active, data.sort_order,
+            )
         with conn.cursor() as cur:
             cur.execute(sql, params)
             row = cur.fetchone()
         conn.commit()
-        return _row_to_goal(row)
+        return fetch_goal_by_id(str(row["id"]))
     return _run_with_reconnect(op)
 
 
 def update_goal(goal_id: str, fields: dict) -> StoredGoal | None:
-    allowed = {"title", "area", "target_completion_date", "is_important", "is_urgent",
-               "is_done", "is_cancelled", "is_active", "sort_order"}
-    updates = {k: v for k, v in fields.items() if k in allowed}
-    if not updates:
-        return fetch_goal_by_id(goal_id)
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    sql = f"update public.goals set {set_clause}, updated_at = now() where id = %s returning {_GOAL_COLS};"
-    params = list(updates.values()) + [goal_id]
-
     def op(conn):
+        allowed = {"title", "area", "goal_theme_id", "target_completion_date", "is_important", "is_urgent",
+                   "is_done", "is_cancelled", "is_active", "sort_order"}
+        updates = {k: v for k, v in fields.items() if k in allowed}
+        if not updates:
+            return fetch_goal_by_id(goal_id)
+        has_goal_theme_schema = _has_goal_theme_schema(conn)
+        if not has_goal_theme_schema and "goal_theme_id" in updates:
+            _require_goal_theme_schema(conn)
+        updates_local = updates if has_goal_theme_schema else {k: v for k, v in updates.items() if k != "goal_theme_id"}
+        set_clause = ", ".join(f"{k} = %s" for k in updates_local)
+        sql = f"update public.goals set {set_clause}, updated_at = now() where id = %s returning id;"
+        params = list(updates_local.values()) + [goal_id]
         with conn.cursor() as cur:
             cur.execute(sql, params)
             row = cur.fetchone()
         conn.commit()
-        return _row_to_goal(row) if row else None
+        return fetch_goal_by_id(str(row["id"])) if row else None
     return _run_with_reconnect(op)
 
 
 def fetch_goal_by_id(goal_id: str) -> StoredGoal | None:
-    sql = f"select {_GOAL_COLS} from public.goals where id = %s;"
-
     def op(conn):
+        if _has_goal_theme_schema(conn):
+            sql = (
+                f"select {_GOAL_COLS} from public.goals g "
+                "left join public.goal_themes gt on gt.id = g.goal_theme_id where g.id = %s;"
+            )
+        else:
+            sql = f"select {_GOAL_COLS_LEGACY} from public.goals g where g.id = %s;"
         with conn.cursor() as cur:
             cur.execute(sql, (goal_id,))
             row = cur.fetchone()
@@ -653,6 +833,20 @@ def _require_recurring_task_schema(conn: PGConnection) -> None:
             "Recurring planner tasks require the latest planner SQL migration. "
             "Run `sql/032_add_recurring_task_templates.sql` in Supabase, then reload the app."
         )
+
+
+def _get_daily_plan_item_columns(conn: PGConnection) -> set[str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select column_name
+            from information_schema.columns
+            where table_schema = 'public'
+              and table_name = 'daily_plan_items';
+            """
+        )
+        rows = cur.fetchall()
+    return {row["column_name"] for row in rows}
 
 def fetch_tasks(*, active_only: bool = True) -> list[StoredTask]:
     def op(conn):
@@ -1221,11 +1415,30 @@ def update_daily_plan_item(item_id: str, fields: dict) -> StoredDailyPlanItem | 
 
 
 def delete_daily_plan_item(item_id: str) -> bool:
-    sql = "delete from public.daily_plan_items where id = %s;"
-
     def op(conn):
+        available_columns = _get_daily_plan_item_columns(conn)
         with conn.cursor() as cur:
-            cur.execute(sql, (item_id,))
+            # Be resilient to older schemas where these self-references may not
+            # have been created with ON DELETE SET NULL.
+            if "source_plan_item_id" in available_columns:
+                cur.execute(
+                    """
+                    update public.daily_plan_items
+                    set source_plan_item_id = null
+                    where source_plan_item_id = %s;
+                    """,
+                    (item_id,),
+                )
+            if "moved_to_plan_item_id" in available_columns:
+                cur.execute(
+                    """
+                    update public.daily_plan_items
+                    set moved_to_plan_item_id = null
+                    where moved_to_plan_item_id = %s;
+                    """,
+                    (item_id,),
+                )
+            cur.execute("delete from public.daily_plan_items where id = %s;", (item_id,))
             deleted = cur.rowcount > 0
         conn.commit()
         return deleted

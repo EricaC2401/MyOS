@@ -141,9 +141,20 @@ class HabitData:
 
 
 @dataclass(frozen=True)
+class GoalThemeData:
+    title: str
+    notes: str | None
+    is_done: bool
+    is_cancelled: bool
+    is_active: bool
+    sort_order: int | None
+
+
+@dataclass(frozen=True)
 class GoalData:
     title: str
     area: str | None
+    goal_theme_id: str | None
     target_completion_date: date | None
     is_important: bool
     is_urgent: bool
@@ -235,11 +246,24 @@ def validate_habit(data: dict) -> HabitData:
     )
 
 
+def validate_goal_theme(data: dict) -> GoalThemeData:
+    title = _require_text(data, "title")
+    return GoalThemeData(
+        title=title,
+        notes=_opt_text(data, "notes"),
+        is_done=_parse_bool(data.get("is_done")),
+        is_cancelled=_parse_bool(data.get("is_cancelled")),
+        is_active=_parse_bool(data.get("is_active"), default=True),
+        sort_order=_opt_int(data, "sort_order"),
+    )
+
+
 def validate_goal(data: dict) -> GoalData:
     title = _require_text(data, "title")
     return GoalData(
         title=title,
         area=_opt_text(data, "area"),
+        goal_theme_id=_opt_text(data, "goal_theme_id"),
         target_completion_date=_parse_date(data.get("target_completion_date"), "target_completion_date"),
         is_important=_parse_bool(data.get("is_important")),
         is_urgent=_parse_bool(data.get("is_urgent")),

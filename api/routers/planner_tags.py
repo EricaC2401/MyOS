@@ -20,7 +20,7 @@ class TagConfigUpdate(BaseModel):
     areas: list[dict[str, str]] | None = None
     task_categories: list[dict[str, str]] | None = None
     event_categories: list[dict[str, str]] | None = None
-    renames: dict[str, list[list[str]]] | None = None
+    renames: dict[str, list[Any]] | None = None
 
 
 @router.get("")
@@ -40,7 +40,17 @@ def save_tag_config(body: TagConfigUpdate):
     if body.renames:
         rename_map: dict[str, list[tuple[str, str]]] = {}
         for col_path, pairs in body.renames.items():
-            rename_map[col_path] = [(p[0], p[1]) for p in pairs if len(p) == 2]
+            normalized_pairs: list[tuple[str, str]] = []
+            for pair in pairs:
+                if isinstance(pair, dict):
+                    old_value = pair.get("prev")
+                    new_value = pair.get("next")
+                    if old_value and new_value:
+                        normalized_pairs.append((str(old_value), str(new_value)))
+                    continue
+                if isinstance(pair, (list, tuple)) and len(pair) == 2 and pair[0] and pair[1]:
+                    normalized_pairs.append((str(pair[0]), str(pair[1])))
+            rename_map[col_path] = normalized_pairs
         cascade_tag_renames(rename_map)
 
     return fetch_planner_tag_config()
