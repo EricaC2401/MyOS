@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MyOS</title>
-<link rel="stylesheet" href="/css/app.css?v=20260705-01">
+<link rel="stylesheet" href="/css/app.css?v=20260707-02">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -851,14 +851,17 @@
             <div class="card">
               <div class="card-head">
                 <span class="card-title"><i class="ti ti-clock" style="font-size:12px"></i> Today's to-do</span>
-                <span style="font-size:10.5px;color:#8492a6">Focused for selected date</span>
+                <div class="today-todo-head-actions">
+                  <span style="font-size:10.5px;color:#8492a6">Focused for selected date</span>
+                  <button class="edit-btn" id="today-todo-edit-btn" onclick="toggleTodayTodoEditMode()"><i class="ti ti-pencil" style="font-size:12px"></i> Edit</button>
+                </div>
               </div>
               <div class="tbl-wrap"><table class="dt">
                 <thead><tr>
                   <th class="c"></th>
                   <th style="width:72px">Cat</th>
                   <th>Item</th>
-                  <th style="width:92px">Move</th>
+                  <th style="width:156px">Move</th>
                   <th class="c" title="Highlight"><svg width="11" height="11" viewBox="0 0 24 24" fill="#EF9F27" stroke="#EF9F27" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></th>
                 </tr></thead>
                 <tbody id="today-todo-tbody"></tbody>
@@ -1371,7 +1374,7 @@
 <script src="/js/utils.js?v=20260629-01"></script>
 <script src="/js/dashboard.js?v=20260630-02"></script>
 <script src="/js/planner-utils.js?v=20260629-01"></script>
-<script src="/js/planner.js?v=20260705-01"></script>
+<script src="/js/planner.js?v=20260707-05"></script>
 <script src="/js/habits.js?v=20260629-01"></script>
 <script src="/js/home.js?v=20260629-01"></script>
 <script src="/js/app.js?v=20260630-01"></script>

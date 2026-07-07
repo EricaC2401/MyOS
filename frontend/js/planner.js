@@ -72,6 +72,7 @@ let busy = false;
 let modalType = '';
 let modalSaveHandler = null;
 let plannerLoadError = '';
+let todayTodoEditMode = false;
 let lastScheduleActivityFocus = null;
 let pendingScheduleActivityInsert = null;
 const plannerSortState = {
@@ -232,7 +233,8 @@ function renderScheduleQuickActivities(){
 }
 
 function preserveScheduleActivityFocus(event){
-  const focusedActivity = getFocusedScheduleActivityInput() || getRememberedScheduleActivityInput();
+  event.preventDefault();
+  const focusedActivity = getFocusedScheduleActivityInput();
   if(!focusedActivity) return;
   rememberScheduleActivityFocus(focusedActivity);
   pendingScheduleActivityInsert = {
@@ -240,7 +242,6 @@ function preserveScheduleActivityFocus(event){
     selectionStart: typeof focusedActivity.selectionStart === 'number' ? focusedActivity.selectionStart : (focusedActivity.value || '').length,
     selectionEnd: typeof focusedActivity.selectionEnd === 'number' ? focusedActivity.selectionEnd : (focusedActivity.value || '').length,
   };
-  event.preventDefault();
 }
 
 function addScheduleQuickActivity(){
@@ -501,6 +502,30 @@ function getCarryoverTaskItem(taskId){
   return state.carryoverTaskItems.find(item => item.task_id === taskId) || null;
 }
 
+function getTaskById(taskId){
+  return state.tasks.find(task => task.id === taskId) || null;
+}
+
+function syncTaskSnapshots(taskId, updates = {}){
+  const syncItem = item => {
+    if(item.task_id !== taskId) return;
+    if(Object.prototype.hasOwnProperty.call(updates, 'title')) item.title_snapshot = updates.title;
+    if(Object.prototype.hasOwnProperty.call(updates, 'category')) item.category_snapshot = updates.category;
+  };
+  state.currentDateItems.forEach(syncItem);
+  state.carryoverTaskItems.forEach(syncItem);
+}
+
+function comparePlanItemOrder(a, b){
+  const aSort = Number.isFinite(Number(a?.sort_order)) ? Number(a.sort_order) : Number.MAX_SAFE_INTEGER;
+  const bSort = Number.isFinite(Number(b?.sort_order)) ? Number(b.sort_order) : Number.MAX_SAFE_INTEGER;
+  if(aSort !== bSort) return aSort - bSort;
+  const aCreated = String(a?.created_at || a?.source_plan_date || '');
+  const bCreated = String(b?.created_at || b?.source_plan_date || '');
+  if(aCreated !== bCreated) return aCreated.localeCompare(bCreated);
+  return String(a?.title_snapshot || '').localeCompare(String(b?.title_snapshot || ''));
+}
+
 function getMovableTaskSourceItem(taskId, sourceItemId = null){
   if(sourceItemId){
     const exactItem = state.currentDateItems.find(item =>
@@ -541,6 +566,17 @@ function getTaskView(task){
     urgent: !!dayItem?.is_urgent,
     highlight: !!dayItem?.is_highlight,
     dayItem,
+    recurrenceSummary: recurrenceSummary(task),
+  };
+}
+
+function getTodayTodoView(item){
+  const task = getTaskById(item.task_id);
+  return {
+    ...item,
+    task,
+    title_snapshot: task?.title || item.title_snapshot || '',
+    category_snapshot: task?.category || item.category_snapshot || '',
     recurrenceSummary: recurrenceSummary(task),
   };
 }
@@ -1637,6 +1673,7 @@ async function editTask(taskId, field, value){
   try{
     await apiPut('/tasks/' + taskId, updates);
     Object.assign(task, updates);
+    syncTaskSnapshots(taskId, updates);
     renderTodos();
     renderTodayTodos();
   } catch (error){
@@ -1817,9 +1854,17 @@ function renderTodayTodos(){
   });
   const todayItems = taskItems
     .filter(item => item.status === 'planned' && item.is_today_focus)
-    .concat(carryoverItems)
-    .sort((a,b) => (b.is_highlight ? 1 : 0) - (a.is_highlight ? 1 : 0) || (a.title_snapshot || '').localeCompare(b.title_snapshot || ''));
+    .sort(comparePlanItemOrder)
+    .concat(carryoverItems.sort(comparePlanItemOrder))
+    .map(getTodayTodoView);
   const doneItems = taskItems.filter(item => item.status === 'done');
+  const editBtn = document.getElementById('today-todo-edit-btn');
+  if(editBtn){
+    editBtn.classList.toggle('active', todayTodoEditMode);
+    editBtn.innerHTML = todayTodoEditMode
+      ? '<i class="ti ti-check" style="font-size:12px"></i> Done'
+      : '<i class="ti ti-pencil" style="font-size:12px"></i> Edit';
+  }
 
   const todoBody = document.getElementById('today-todo-tbody');
   if(todoBody){
@@ -1829,9 +1874,9 @@ function renderTodayTodos(){
       todoBody.innerHTML = todayItems.map(item => `
         <tr class="${item.is_highlight ? 'hl-bg' : ''}">
           <td class="c"><div class="cb" onclick="todayToggleDone('${item.task_id}')"></div></td>
-          <td>${catChip(item.category_snapshot)}</td>
-          <td class="schedule-quick-fill-cell"><button class="schedule-quick-fill${item.is_highlight ? ' is-highlight' : ''}" type="button" title="Click to add this task to the schedule" data-task-id="${esc(item.task_id)}" data-title="${esc(item.title_snapshot)}" onmousedown="event.preventDefault()" onclick="insertTodoIntoSchedule(this.dataset.taskId, this.dataset.title)">${esc(item.title_snapshot)}</button></td>
-          <td><button class="btn-ghost" onclick="openMoveTaskModal('${item.task_id}','${item.id}')">Move</button></td>
+          <td>${todayTodoEditMode?`<select class="isel chip-select ${catChipClass(item.category_snapshot)}" onchange="editTask('${item.task_id}','category',this.value)">${CATS.map(cat => `<option value="${esc(cat)}"${item.category_snapshot === cat ? ' selected' : ''}>${esc(cat)}</option>`).join('')}</select>`:catChip(item.category_snapshot)}</td>
+          <td style="min-width:240px">${todayTodoEditMode?`<div class="today-task-edit-cell"><input class="ec today-task-title-input" style="${item.is_highlight ? 'font-weight:600' : ''}" value="${esc(item.title_snapshot)}" onchange="editTask('${item.task_id}','title',this.value)" />${item.recurrenceSummary ? `<span class="mu today-task-meta"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(item.recurrenceSummary)}</span>` : ''}</div>`:`<button class="schedule-quick-fill${item.is_highlight ? ' is-highlight' : ''}" type="button" title="Click to add this task to the schedule" data-task-id="${esc(item.task_id)}" data-title="${esc(item.title_snapshot)}" onmousedown="event.preventDefault()" onclick="insertTodoIntoSchedule(this.dataset.taskId, this.dataset.title)">${esc(item.title_snapshot)}</button>${item.recurrenceSummary ? `<div class="mu today-task-meta"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(item.recurrenceSummary)}</div>` : ''}`}</td>
+          <td><div class="today-reorder-controls"><button class="btn-ghost" onclick="openMoveTaskModal('${item.task_id}','${item.id}')">Move</button><div class="today-reorder-buttons"><button class="today-reorder-btn" onclick="reorderTodayItem('${item.task_id}',-1)" ${todayItems[0]?.task_id===item.task_id?'disabled':''} title="Move up"><i class="ti ti-chevron-up"></i></button><button class="today-reorder-btn" onclick="reorderTodayItem('${item.task_id}',1)" ${todayItems[todayItems.length-1]?.task_id===item.task_id?'disabled':''} title="Move down"><i class="ti ti-chevron-down"></i></button></div></div></td>
           <td class="c"><div class="cb-star ${item.is_highlight ? 'on' : ''}" onclick="toggleHighlight('${item.task_id}')">${icoStar(item.is_highlight)}</div></td>
         </tr>
       `).join('');
@@ -1859,8 +1904,51 @@ async function todayToggleDone(taskId){
   await toggleTodo(taskId, { preserveFocus: true });
 }
 
+function toggleTodayTodoEditMode(){
+  todayTodoEditMode = !todayTodoEditMode;
+  renderTodayTodos();
+}
+
 async function toggleHighlight(taskId){
   await toggleFlag(taskId, 'highlight');
+}
+
+async function reorderTodayItem(taskId, direction){
+  if(busy) return;
+  let item = getCurrentTaskItem(taskId);
+  if(!item){
+    item = await ensureTaskPlannerItem(taskId, { templateItem: getCarryoverTaskItem(taskId) });
+    if(!item) return;
+    await loadCurrentDateItems();
+    item = getCurrentTaskItem(taskId);
+  }
+  if(!item) return;
+
+  const visibleItems = state.currentDateItems
+    .filter(entry => entry.item_type === 'task' && entry.status === 'planned' && entry.is_today_focus)
+    .sort(comparePlanItemOrder);
+  const index = visibleItems.findIndex(entry => entry.id === item.id);
+  const nextIndex = index + direction;
+  if(index === -1 || nextIndex < 0 || nextIndex >= visibleItems.length) return;
+
+  const reordered = [...visibleItems];
+  const [moved] = reordered.splice(index, 1);
+  reordered.splice(nextIndex, 0, moved);
+
+  setBusy(true);
+  try{
+    for(let i = 0; i < reordered.length; i += 1){
+      const entry = reordered[i];
+      entry.sort_order = i;
+      await apiPut('/daily-plan-items/' + entry.id, { sort_order: i, updated_at: new Date().toISOString() });
+    }
+    await loadCurrentDateItems();
+    renderTodayTodos();
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  } finally {
+    setBusy(false);
+  }
 }
 
 // ─── Events ────────────────────────────────────────
@@ -2227,7 +2315,7 @@ async function insertScheduleTextOrAddRow(titleSnapshot){
   const nextTitle = String(titleSnapshot || '').trim();
   if(!nextTitle) return;
 
-  const focusedActivity = getFocusedScheduleActivityInput() || getRememberedScheduleActivityInput();
+  const focusedActivity = getFocusedScheduleActivityInput();
   if(focusedActivity){
     const itemId = focusedActivity.dataset.itemId;
     const appended = appendTextToScheduleActivityInput(focusedActivity, nextTitle);

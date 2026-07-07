@@ -45,6 +45,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .btn-secondary{display:flex;align-items:center;gap:5px;padding:6px 13px;border-radius:7px;border:1px solid #d0d5e0;background:#fff;color:#1a1f2e;cursor:pointer;font-size:12px;font-weight:500}
 .btn-secondary:hover{background:#f4f6fb}
 .btn-ghost{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:1px solid #e0e4ef;background:#fff;color:#5a6478;cursor:pointer;font-size:12px}
+.today-todo-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.today-task-edit-cell{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.today-task-title-input{width:100%;min-width:0}
+.today-task-meta{font-size:10.5px;display:flex;align-items:center;gap:4px}
+.today-reorder-controls{display:flex;align-items:center;gap:6px}
+.today-reorder-buttons{display:flex;align-items:center;gap:4px}
+.today-reorder-btn{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e0e4ef;border-radius:7px;background:#fff;color:#7a8399;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0}
+.today-reorder-btn:hover:not(:disabled){background:#f4f6fb;color:#534AB7;border-color:#534AB7}
+.today-reorder-btn:disabled{opacity:0.35;cursor:default}
 .settings-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border-radius:7px;border:1px solid #d0d5e0;background:#fff;color:#5a6478;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit}
 .settings-btn:hover{background:#f4f6fb}
 
