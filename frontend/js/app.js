@@ -5020,7 +5020,9 @@ function configureSetupOverlay({ configured, allow_browser_setup: allowBrowserSe
 
 async function checkAuthStatus() {
   try {
-    const res = await fetch('/api/auth/status');
+    const res = await fetch('/api/auth/status', {
+      credentials: 'same-origin',
+    });
     const data = await res.json();
     _authEnabled = !!data.enabled;
     _authReady = !_authEnabled || !!data.authenticated;
@@ -5042,7 +5044,9 @@ async function checkAuthStatus() {
 
 async function checkSetupStatus() {
   try {
-    const res = await fetch('/api/setup/status');
+    const res = await fetch('/api/setup/status', {
+      credentials: 'same-origin',
+    });
     const data = await res.json();
     configureSetupOverlay(data);
     if (!data.configured) {
@@ -5081,6 +5085,7 @@ async function submitAppLogin() {
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: input.value }),
     });
@@ -5106,7 +5111,10 @@ async function submitAppLogin() {
 
 async function logoutApp() {
   try {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
   } catch (_) {}
   _authReady = !_authEnabled;
   _bootstrapped = false;
@@ -5165,6 +5173,7 @@ async function submitSetupCredentials() {
   try {
     const res = await fetch('/api/setup/credentials', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });

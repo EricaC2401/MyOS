@@ -24,6 +24,7 @@ function formatApiErrorDetail(detail, fallbackStatus){
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(API + path, {
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
   });
