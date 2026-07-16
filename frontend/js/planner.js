@@ -1194,6 +1194,7 @@ function renderSummaryPills(){
 // ─── Section navigation ────────────────────────────
 
 function showSection(id, btn){
+  if(typeof closeMobileSidebar === 'function') closeMobileSidebar();
   document.querySelectorAll('#sb-mode-planner .nav').forEach(node => node.classList.remove('active'));
   if(btn) btn.classList.add('active');
   currentSection = id;
