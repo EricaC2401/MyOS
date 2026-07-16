@@ -261,6 +261,23 @@ function persistScheduleQuickActivities(){
   );
 }
 
+async function persistScheduleQuickActivitiesToServer(options = {}){
+  if(!tagConfig) return false;
+  const { silent = false } = options;
+  const normalized = normalizeScheduleQuickActivities(state.scheduleQuickActivities);
+  try{
+    await apiPut('/planner/tags', {
+      schedule_quick_activities: normalized,
+    });
+    tagConfig = { ...tagConfig, scheduleQuickActivities: normalized };
+    return true;
+  } catch(error){
+    console.warn('Could not save quick activities to API:', error);
+    if(!silent) showToast('Saved on this device only for now', true);
+    return false;
+  }
+}
+
 function renderScheduleQuickActivities(){
   const listEl = document.getElementById('schedule-quick-activities-list');
   if(!listEl) return;
@@ -290,7 +307,7 @@ function preserveScheduleActivityFocus(event){
   };
 }
 
-function addScheduleQuickActivity(){
+async function addScheduleQuickActivity(){
   const input = document.getElementById('schedule-quick-activity-input');
   const value = input ? input.value.trim() : '';
   if(!value) return;
@@ -303,18 +320,20 @@ function addScheduleQuickActivity(){
   state.scheduleQuickActivities.push(value);
   state.scheduleQuickActivities = normalizeScheduleQuickActivities(state.scheduleQuickActivities);
   persistScheduleQuickActivities();
+  await persistScheduleQuickActivitiesToServer();
   renderScheduleQuickActivities();
   if(input) input.value = '';
   showToast('Quick activity saved');
 }
 
-function removeScheduleQuickActivity(activity){
+async function removeScheduleQuickActivity(activity){
   state.scheduleQuickActivities = state.scheduleQuickActivities.filter(item => item.toLowerCase() !== String(activity).trim().toLowerCase());
   persistScheduleQuickActivities();
+  await persistScheduleQuickActivitiesToServer({ silent: true });
   renderScheduleQuickActivities();
 }
 
-function reorderScheduleQuickActivities(sourceActivity, targetActivity){
+async function reorderScheduleQuickActivities(sourceActivity, targetActivity){
   const sourceValue = String(sourceActivity || '').trim().toLowerCase();
   const targetValue = String(targetActivity || '').trim().toLowerCase();
   if(!sourceValue || !targetValue || sourceValue === targetValue) return;
@@ -328,6 +347,7 @@ function reorderScheduleQuickActivities(sourceActivity, targetActivity){
   reordered.splice(targetIndex, 0, moved);
   state.scheduleQuickActivities = reordered;
   persistScheduleQuickActivities();
+  await persistScheduleQuickActivitiesToServer({ silent: true });
   renderScheduleQuickActivities();
 }
 
@@ -365,13 +385,13 @@ function handleQuickActivityDragLeave(event){
   if(chip) chip.classList.remove('is-drop-target');
 }
 
-function handleQuickActivityDrop(event){
+async function handleQuickActivityDrop(event){
   event.preventDefault();
   const chip = event.currentTarget;
   const targetActivity = chip?.dataset?.activity;
   const sourceActivity = state.draggingQuickActivity || event.dataTransfer?.getData('text/plain');
   clearQuickActivityDropTargets();
-  reorderScheduleQuickActivities(sourceActivity, targetActivity);
+  await reorderScheduleQuickActivities(sourceActivity, targetActivity);
 }
 
 function handleQuickActivityDragEnd(event){
@@ -381,7 +401,7 @@ function handleQuickActivityDragEnd(event){
   if(chip) chip.classList.remove('is-dragging');
 }
 
-function editScheduleQuickActivity(activity){
+async function editScheduleQuickActivity(activity){
   const currentValue = String(activity || '').trim();
   if(!currentValue) return;
   const nextValue = window.prompt('Edit quick activity', currentValue);
@@ -406,6 +426,7 @@ function editScheduleQuickActivity(activity){
   );
   state.scheduleQuickActivities = normalizeScheduleQuickActivities(state.scheduleQuickActivities);
   persistScheduleQuickActivities();
+  await persistScheduleQuickActivitiesToServer();
   renderScheduleQuickActivities();
   showToast('Quick activity updated');
 }
@@ -449,11 +470,17 @@ async function loadTagConfig(){
       areas: normalizeTagGroup(raw.areas, DEFAULT_TAG_CONFIG.areas),
       taskCategories: normalizeTagGroup(raw.task_categories || raw.taskCategories, DEFAULT_TAG_CONFIG.taskCategories),
       eventCategories: normalizeTagGroup(raw.event_categories || raw.eventCategories, DEFAULT_TAG_CONFIG.eventCategories),
+      scheduleQuickActivities: normalizeScheduleQuickActivities(
+        raw.schedule_quick_activities || raw.scheduleQuickActivities || []
+      ),
     };
     return normalized;
   } catch(err) {
     console.warn('Could not load tag config from API, using defaults:', err);
-    return cloneDefaultTagConfig();
+    return {
+      ...cloneDefaultTagConfig(),
+      scheduleQuickActivities: [],
+    };
   }
 }
 
@@ -991,6 +1018,14 @@ function renderStaticOptions(){
 async function initShell(){
   tagConfig = await loadTagConfig();
   applyTagConfig();
+  loadScheduleQuickActivities();
+  const remoteQuickActivities = normalizeScheduleQuickActivities(tagConfig.scheduleQuickActivities || []);
+  if(remoteQuickActivities.length){
+    state.scheduleQuickActivities = remoteQuickActivities;
+    persistScheduleQuickActivities();
+  } else {
+    await persistScheduleQuickActivitiesToServer({ silent: true });
+  }
   syncCurrentDateIndicators();
   syncScheduleDateIfNeeded(true);
   refreshPlannerSelectOptions();

@@ -20,6 +20,7 @@ class TagConfigUpdate(BaseModel):
     areas: list[dict[str, str]] | None = None
     task_categories: list[dict[str, str]] | None = None
     event_categories: list[dict[str, str]] | None = None
+    schedule_quick_activities: list[str] | None = None
     renames: dict[str, list[Any]] | None = None
 
 
@@ -36,6 +37,8 @@ def save_tag_config(body: TagConfigUpdate):
         update_planner_tag_config("task_categories", body.task_categories)
     if body.event_categories is not None:
         update_planner_tag_config("event_categories", body.event_categories)
+    if body.schedule_quick_activities is not None:
+        update_planner_tag_config("schedule_quick_activities", body.schedule_quick_activities)
 
     if body.renames:
         rename_map: dict[str, list[tuple[str, str]]] = {}
