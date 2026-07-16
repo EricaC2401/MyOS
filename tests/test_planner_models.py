@@ -56,6 +56,20 @@ def test_validate_recurring_task_template_accepts_weekly_rule() -> None:
     assert template.start_date == date(2026, 7, 2)
 
 
+def test_validate_recurring_task_template_accepts_daily_rule() -> None:
+    template = validate_recurring_task_template(
+        {
+            "title": "Inbox zero",
+            "repeat_unit": "daily",
+            "start_date": "2026-07-02",
+        }
+    )
+
+    assert template.repeat_unit == "daily"
+    assert template.weekday is None
+    assert template.day_of_month is None
+
+
 def test_validate_recurring_task_template_requires_weekday_for_weekly() -> None:
     with pytest.raises(ValidationError, match="weekday is required for weekly recurrence"):
         validate_recurring_task_template(
@@ -90,6 +104,18 @@ def test_get_next_recurring_task_due_date_uses_selected_weekday() -> None:
     )
 
     assert get_next_recurring_task_due_date(template, from_date=date(2026, 7, 2)) == date(2026, 7, 6)
+
+
+def test_get_next_recurring_task_due_date_returns_same_day_for_daily() -> None:
+    template = validate_recurring_task_template(
+        {
+            "title": "Inbox zero",
+            "repeat_unit": "daily",
+            "start_date": "2026-07-02",
+        }
+    )
+
+    assert get_next_recurring_task_due_date(template, from_date=date(2026, 7, 5)) == date(2026, 7, 5)
 
 
 def test_get_next_recurring_task_due_date_clamps_short_months() -> None:

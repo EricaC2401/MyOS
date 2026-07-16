@@ -167,6 +167,21 @@ def test_build_expense_report_summary_calculates_totals() -> None:
     assert summary.necessaries_total_hkd == Decimal("0.00")
 
 
+def test_build_category_spending_report_keeps_negative_discount_totals() -> None:
+    transactions = [
+        make_transaction(transaction_id=1, transaction_date=date(2026, 5, 1), category="Food", amount_gbp="10.00"),
+        make_transaction(transaction_id=2, transaction_date=date(2026, 5, 2), category="Discount", amount_gbp="-3.00"),
+        make_transaction(transaction_id=3, transaction_date=date(2026, 5, 3), category="Discount", amount_gbp="-2.00"),
+    ]
+
+    rows = build_category_spending_report(transactions)
+
+    assert rows[0]["category"] == "Food"
+    assert rows[0]["amount_gbp"] == Decimal("10.00")
+    assert rows[1]["category"] == "Discount"
+    assert rows[1]["amount_gbp"] == Decimal("-5.00")
+
+
 def test_filter_tax_payment_transactions_keeps_only_tax_payment_group() -> None:
     transactions = [
         StoredExpenseTransaction(

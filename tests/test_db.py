@@ -258,6 +258,22 @@ def make_valid_exchange() -> ExchangeRecord:
     )
 
 
+def test_resolve_finance_link_for_amounts_keeps_negative_gbp_amounts() -> None:
+    assert db._resolve_finance_link_for_amounts(
+        payment_method="Monzo Current",
+        amount_gbp=Decimal("-8.00"),
+        amount_hkd=None,
+    ) == ("Monzo", "Current", "GBP", Decimal("-8.00"))
+
+
+def test_resolve_finance_link_for_amounts_keeps_negative_hkd_amounts() -> None:
+    assert db._resolve_finance_link_for_amounts(
+        payment_method="HSBC HK HKD",
+        amount_gbp=Decimal("0.00"),
+        amount_hkd=Decimal("-10.00"),
+    ) == ("HSBC HK", "HKD", "HKD", Decimal("-10.00"))
+
+
 def make_tax_due_row(entry_id: int = 1) -> dict[str, object]:
     return {
         "id": entry_id,

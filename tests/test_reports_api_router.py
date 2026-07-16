@@ -192,3 +192,42 @@ def test_dashboard_report_uses_accrued_total_for_custom_period(monkeypatch) -> N
     assert payload["metrics"]["expense_used_ex_tax_gbp"] == "40.00"
     assert payload["metrics"]["saving_paid_gbp"] == "90.00"
     assert payload["metrics"]["saving_used_gbp"] == "150.00"
+
+
+def test_dashboard_finance_report_uses_cached_payload(monkeypatch) -> None:
+    built_payload = {
+        "finance_currency_summary": [{"currency": "GBP", "balance": "123.45"}],
+        "finance_totals": {"total_gbp_excluding_mums_time_d": "123.45"},
+    }
+    captured: dict[str, object] = {"build_calls": 0}
+
+    monkeypatch.setattr(reports, "get_finance_dashboard_cache", lambda: None)
+
+    def fake_build():
+        captured["build_calls"] = int(captured["build_calls"]) + 1
+        return built_payload
+
+    monkeypatch.setattr(reports, "_build_dashboard_finance_payload", fake_build)
+    monkeypatch.setattr(reports, "set_finance_dashboard_cache", lambda payload: captured.setdefault("cached", payload))
+
+    payload = reports.dashboard_finance_report()
+
+    assert payload == built_payload
+    assert captured["build_calls"] == 1
+    assert captured["cached"] == built_payload
+
+
+def test_dashboard_finance_report_returns_cached_payload_without_rebuild(monkeypatch) -> None:
+    cached_payload = {
+        "finance_currency_summary": [{"currency": "HKD", "balance": "999.00"}],
+        "finance_totals": {"total_hkd_including_mums_time_d": "999.00"},
+    }
+
+    monkeypatch.setattr(reports, "get_finance_dashboard_cache", lambda: cached_payload)
+    monkeypatch.setattr(
+        reports,
+        "_build_dashboard_finance_payload",
+        lambda: (_ for _ in ()).throw(AssertionError("cache miss should not rebuild payload")),
+    )
+
+    assert reports.dashboard_finance_report() == cached_payload

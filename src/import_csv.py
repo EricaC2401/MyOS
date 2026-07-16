@@ -148,7 +148,7 @@ def fetch_hmrc_monthly_rates(year: int, month: int) -> dict[str, Decimal]:
         f"monthly_csv_{year}-{month}.csv"
     )
     try:
-        csv_text = urlopen(url, timeout=20).read().decode("utf-8-sig")
+        csv_text = urlopen(url, timeout=5).read().decode("utf-8-sig")
     except (URLError, TimeoutError) as exc:
         raise CSVImportError(
             f"Could not fetch HMRC monthly exchange rates for {year:04d}-{month:02d}."

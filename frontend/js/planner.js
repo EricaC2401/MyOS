@@ -120,9 +120,55 @@ function weekdayLabel(index){const days=['Monday','Tuesday','Wednesday','Thursda
 function recurrenceSummary(task){
   const recurrence = task?.recurrence;
   if(!recurrence?.repeat_unit) return '';
+  if(recurrence.repeat_unit === 'daily') return 'Daily';
   if(recurrence.repeat_unit === 'weekly') return recurrence.weekday == null ? 'Weekly' : `Weekly • ${weekdayLabel(recurrence.weekday)}`;
   if(recurrence.repeat_unit === 'monthly') return recurrence.day_of_month == null ? 'Monthly' : `Monthly • ${ordinal(recurrence.day_of_month)}`;
   return '';
+}
+function recurrenceDescription(task){
+  const recurrence = task?.recurrence;
+  const summary = recurrenceSummary(task);
+  if(!recurrence?.repeat_unit || !summary) return '';
+  if(recurrence.repeat_unit === 'daily') return 'Repeats daily';
+  if(recurrence.repeat_unit === 'weekly') return `Repeats weekly${recurrence.weekday == null ? '' : ` • ${weekdayLabel(recurrence.weekday)}`}`;
+  if(recurrence.repeat_unit === 'monthly') return `Repeats monthly${recurrence.day_of_month == null ? '' : ` • ${ordinal(recurrence.day_of_month)}`}`;
+  return `Repeats ${summary}`;
+}
+function recurrenceBadgeLabel(task){
+  const recurrence = task?.recurrence;
+  if(!recurrence?.repeat_unit) return '';
+  if(recurrence.repeat_unit === 'daily') return 'D';
+  if(recurrence.repeat_unit === 'weekly') return 'W';
+  if(recurrence.repeat_unit === 'monthly') return 'M';
+  return 'R';
+}
+function recurrenceCycleLabel(task){
+  const recurrence = task?.recurrence;
+  if(recurrence?.repeat_unit === 'daily') return 'D';
+  if(recurrence?.repeat_unit === 'weekly') return 'W';
+  if(recurrence?.repeat_unit === 'monthly') return 'M';
+  return 'N';
+}
+function nextRecurrenceUnit(task){
+  const current = task?.recurrence?.repeat_unit;
+  if(current === 'daily') return 'weekly';
+  if(current === 'weekly') return 'monthly';
+  if(current === 'monthly') return 'none';
+  return 'daily';
+}
+function inferTaskRecurrenceDefaults(task, repeatUnit){
+  const baseDate = task?.deadline || todayStr();
+  const parsed = new Date(`${baseDate}T00:00:00`);
+  const weekday = Number.isNaN(parsed.getTime()) ? 0 : (parsed.getDay() + 6) % 7;
+  const dayOfMonth = Number.isNaN(parsed.getTime()) ? 1 : parsed.getDate();
+  return {
+    repeat_unit: repeatUnit,
+    repeat_every: task?.recurrence?.repeat_every || 1,
+    weekday: repeatUnit === 'weekly' ? weekday : null,
+    day_of_month: repeatUnit === 'monthly' ? dayOfMonth : null,
+    start_date: task?.recurrence?.start_date || task?.deadline || todayStr(),
+    is_active: true,
+  };
 }
 function areaChip(g){if(!g)return'';return`<span class="chip ${AREA_CHIP[g]||'chip-gray'}">${esc(g)}</span>`;}
 function catChip(c){if(!c)return'';return`<span class="chip ${CAT_CHIP[c]||'chip-gray'}">${esc(c)}</span>`;}
@@ -494,12 +540,45 @@ function milestoneStatusLabel(goal){
   return 'Pending';
 }
 
-function getCurrentTaskItem(taskId){
-  return state.currentDateItems.find(item => item.item_type === 'task' && item.task_id === taskId && ['planned','done'].includes(item.status)) || null;
+function isMatchingTaskPlanItem(item, taskId, statuses = null){
+  if(!item || item.item_type !== 'task' || item.task_id !== taskId) return false;
+  if(Array.isArray(statuses) && statuses.length) return statuses.includes(item.status);
+  return true;
 }
 
-function getCarryoverTaskItem(taskId){
-  return state.carryoverTaskItems.find(item => item.task_id === taskId) || null;
+function getCurrentTaskItem(taskId, statuses = ['planned','done']){
+  return state.currentDateItems.find(item => isMatchingTaskPlanItem(item, taskId, statuses)) || null;
+}
+
+function getCarryoverTaskItem(taskId, statuses = ['planned']){
+  if(getSelectedDate() !== todayStr()) return null;
+  return state.carryoverTaskItems.find(item => isMatchingTaskPlanItem(item, taskId, statuses)) || null;
+}
+
+function buildTaskPlanItemLookup(){
+  const currentByTaskId = new Map();
+  const carryoverByTaskId = new Map();
+
+  state.currentDateItems.forEach(item => {
+    if(item?.item_type !== 'task' || !item.task_id) return;
+    if(!currentByTaskId.has(item.task_id)) currentByTaskId.set(item.task_id, []);
+    currentByTaskId.get(item.task_id).push(item);
+  });
+
+  if(getSelectedDate() === todayStr()){
+    state.carryoverTaskItems.forEach(item => {
+      if(item?.item_type !== 'task' || !item.task_id) return;
+      if(!carryoverByTaskId.has(item.task_id)) carryoverByTaskId.set(item.task_id, []);
+      carryoverByTaskId.get(item.task_id).push(item);
+    });
+  }
+
+  return { currentByTaskId, carryoverByTaskId };
+}
+
+function findTaskPlanItem(items, taskId, statuses = null){
+  if(!Array.isArray(items) || !items.length) return null;
+  return items.find(item => isMatchingTaskPlanItem(item, taskId, statuses)) || null;
 }
 
 function getTaskById(taskId){
@@ -516,6 +595,62 @@ function syncTaskSnapshots(taskId, updates = {}){
   state.carryoverTaskItems.forEach(syncItem);
 }
 
+function mergeCurrentDateItem(itemId, updates = {}){
+  let merged = null;
+  state.currentDateItems = state.currentDateItems.map(item => {
+    if(item.id !== itemId) return item;
+    merged = { ...item, ...updates };
+    return merged;
+  });
+  return merged;
+}
+
+function upsertCurrentDateItem(nextItem){
+  if(!nextItem?.id) return null;
+  const index = state.currentDateItems.findIndex(item => item.id === nextItem.id);
+  if(index === -1){
+    state.currentDateItems.push(nextItem);
+    return nextItem;
+  }
+  state.currentDateItems[index] = { ...state.currentDateItems[index], ...nextItem };
+  return state.currentDateItems[index];
+}
+
+function renderTaskPanels(){
+  renderTodos();
+  renderTodayTodos();
+  renderSummaryPills();
+}
+
+function renderTaskSection(){
+  renderSummaryPills();
+  renderGoals();
+  renderMilestones();
+  renderTodos();
+  renderEvents();
+}
+
+function renderScheduleSection(){
+  renderSummaryPills();
+  renderScheduleQuickActivities();
+  renderSelectedDateEvents();
+  renderTodayTodos();
+  renderSched(getSelectedDate());
+}
+
+function renderCurrentSection(){
+  if(currentSection === 'habits'){
+    renderSummaryPills();
+    if(typeof renderHabitsSection === 'function') renderHabitsSection();
+    return;
+  }
+  if(currentSection === 'tasks'){
+    renderTaskSection();
+    return;
+  }
+  renderScheduleSection();
+}
+
 function comparePlanItemOrder(a, b){
   const aSort = Number.isFinite(Number(a?.sort_order)) ? Number(a.sort_order) : Number.MAX_SAFE_INTEGER;
   const bSort = Number.isFinite(Number(b?.sort_order)) ? Number(b.sort_order) : Number.MAX_SAFE_INTEGER;
@@ -529,7 +664,7 @@ function comparePlanItemOrder(a, b){
 function getMovableTaskSourceItem(taskId, sourceItemId = null){
   if(sourceItemId){
     const exactItem = state.currentDateItems.find(item =>
-      item.id === sourceItemId && item.item_type === 'task' && item.task_id === taskId && ['planned', 'done'].includes(item.status)
+      item.id === sourceItemId && isMatchingTaskPlanItem(item, taskId, ['planned', 'done'])
     );
     if(exactItem){
       return {
@@ -540,9 +675,7 @@ function getMovableTaskSourceItem(taskId, sourceItemId = null){
     }
   }
 
-  const currentItem = state.currentDateItems.find(item =>
-    item.item_type === 'task' && item.task_id === taskId && ['planned', 'done'].includes(item.status)
-  );
+  const currentItem = getCurrentTaskItem(taskId, ['planned', 'done']);
   if(currentItem){
     return {
       ...currentItem,
@@ -557,8 +690,19 @@ function getMovableTaskSourceItem(taskId, sourceItemId = null){
   return null;
 }
 
-function getTaskView(task){
-  const dayItem = getCurrentTaskItem(task.id) || getCarryoverTaskItem(task.id);
+function getTaskView(task, lookup = null){
+  const currentItems = lookup?.currentByTaskId?.get(task.id) || null;
+  const carryoverItems = lookup?.carryoverByTaskId?.get(task.id) || null;
+  const currentTaskItem = currentItems
+    ? findTaskPlanItem(currentItems, task.id, ['planned', 'done', 'cancelled', 'moved'])
+    : getCurrentTaskItem(task.id, ['planned', 'done', 'cancelled', 'moved']);
+  const currentPlannedItem = currentTaskItem?.status === 'planned' ? currentTaskItem : null;
+  const carryoverItem = currentTaskItem
+    ? null
+    : carryoverItems
+      ? findTaskPlanItem(carryoverItems, task.id, ['planned'])
+      : getCarryoverTaskItem(task.id, ['planned']);
+  const dayItem = task.is_done || task.is_cancelled ? null : (currentPlannedItem || carryoverItem);
   return {
     ...task,
     today: !!dayItem?.is_today_focus,
@@ -582,7 +726,7 @@ function getTodayTodoView(item){
 }
 
 function renderTaskTitle(task){
-  const summary = task.recurrenceSummary || recurrenceSummary(task);
+  const summary = recurrenceDescription(task);
   const recurrenceMeta = summary
     ? `<div class="mu" style="font-size:10.5px;margin-top:2px;display:flex;align-items:center;gap:4px"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(summary)}</div>`
     : '';
@@ -617,6 +761,23 @@ function syncInlineTaskRecurrenceFields(){
   const repeatValue = repeatEl?.value || 'none';
   if(weekdayEl) weekdayEl.style.display = repeatValue === 'weekly' ? '' : 'none';
   if(monthdayEl) monthdayEl.style.display = repeatValue === 'monthly' ? '' : 'none';
+}
+
+function syncTaskRecurrenceEditorFields(){
+  const repeatEl = document.getElementById('m-task-repeat');
+  const weekdayGroup = document.getElementById('m-task-weekday-group');
+  const monthDayGroup = document.getElementById('m-task-monthday-group');
+  const repeatValue = repeatEl?.value || 'none';
+  if(weekdayGroup) weekdayGroup.style.display = repeatValue === 'weekly' ? '' : 'none';
+  if(monthDayGroup) monthDayGroup.style.display = repeatValue === 'monthly' ? '' : 'none';
+}
+
+function applyTaskPayload(taskId, payload){
+  const task = state.tasks.find(item => item.id === taskId);
+  if(!task || !payload || payload.error) return task;
+  Object.assign(task, payload);
+  syncTaskSnapshots(taskId, { title: task.title, category: task.category });
+  return task;
 }
 
 function normalizeSearch(value){
@@ -721,7 +882,7 @@ function sortGoalsList(goals){
 
 function sortTodoList(tasks){
   const sort = plannerSortState.todos;
-  const withViews = tasks.map(getTaskView);
+  const withViews = tasks.map(task => task.dayItem !== undefined ? task : getTaskView(task));
   if(sort.field === 'priority'){
     return withViews.sort((a,b) => {
       const score = task => (task.urgent ? 4 : 0) + (task.important ? 2 : 0) + (task.today ? 1 : 0);
@@ -936,7 +1097,55 @@ async function loadCurrentDateItems(){
     state.currentDateItems = [];
   }
 
+  await ensureRecurringTasksForSelectedDate(selectedDate);
   await loadCarryoverTaskItems(selectedDate);
+}
+
+async function ensureRecurringTasksForSelectedDate(selectedDate){
+  const recurringDueTasks = state.tasks.filter(task =>
+    task?.recurrence?.repeat_unit &&
+    task.deadline === selectedDate &&
+    !task.is_done &&
+    !task.is_cancelled &&
+    task.is_active !== false
+  );
+  if(!recurringDueTasks.length) return;
+
+  let changed = false;
+  const currentItemsByTaskId = new Map(
+    state.currentDateItems
+      .filter(item => item.item_type === 'task' && item.task_id)
+      .map(item => [item.task_id, item])
+  );
+
+  for(const task of recurringDueTasks){
+    const existingItem = currentItemsByTaskId.get(task.id);
+    if(existingItem){
+      if(!existingItem.is_today_focus){
+        await apiPut('/daily-plan-items/' + existingItem.id, {
+          is_today_focus: true,
+          updated_at: new Date().toISOString(),
+        });
+        changed = true;
+      }
+      continue;
+    }
+
+    await ensureTaskPlannerItem(task.id, {
+      templateItem: {
+        is_today_focus: true,
+        is_important: false,
+        is_urgent: false,
+        is_highlight: false,
+      },
+    });
+    changed = true;
+  }
+
+  if(!changed) return;
+  const refreshed = await apiGet('/daily-plans/' + selectedDate);
+  state.currentPlanId = refreshed.plan ? refreshed.plan.id : null;
+  state.currentDateItems = refreshed.items || [];
 }
 
 async function loadCarryoverTaskItems(selectedDate){
@@ -961,17 +1170,8 @@ async function ensureDailyPlan(dateKey){
 // ─── Render all ────────────────────────────────────
 
 function renderAll(){
-  renderScheduleQuickActivities();
   updateSortableHeaders();
-  renderSummaryPills();
-  renderGoals();
-  renderMilestones();
-  renderTodos();
-  renderEvents();
-  renderSelectedDateEvents();
-  renderTodayTodos();
-  renderSched(getSelectedDate());
-  if(typeof renderHabitsSection === 'function') renderHabitsSection();
+  renderCurrentSection();
   updateTopbarForSection();
 }
 
@@ -1007,10 +1207,10 @@ function showSection(id, btn){
   if(id === 'schedule'){
     syncScheduleDateIfNeeded();
     loadSchedule();
-    renderSelectedDateEvents();
+    return;
   }
   updateTopbarForSection();
-  renderSummaryPills();
+  renderCurrentSection();
 }
 
 function switchTab(tab, btn){
@@ -1500,15 +1700,17 @@ async function deleteGoalTheme(goalThemeId){
 function renderTodos(){
   const search = normalizeSearch(plannerFilters.todos.search);
   const filter = plannerFilters.todos.category;
-  let pending = state.tasks.filter(task => !task.is_done && !task.is_cancelled);
-  let done = state.tasks.filter(task => task.is_done && !task.is_cancelled);
-  let cancelled = state.tasks.filter(task => task.is_cancelled);
-  const matchesTaskFilter = task => {
-    if(filter && task.category !== filter) return false;
+  const lookup = buildTaskPlanItemLookup();
+  const taskViews = state.tasks.map(task => getTaskView(task, lookup));
+  let pending = taskViews.filter(task => !task.is_done && !task.is_cancelled);
+  let done = taskViews.filter(task => task.is_done && !task.is_cancelled);
+  let cancelled = taskViews.filter(task => task.is_cancelled);
+  const matchesTaskFilter = taskView => {
+    if(filter && taskView.category !== filter) return false;
     if(search){
-      const targetTitle = getGoalById(task.goal_id)?.title || '';
-      const goalThemeTitle = getGoalThemeForTask(task)?.title || '';
-      if(![task.title, task.category, targetTitle, goalThemeTitle].some(value => normalizeSearch(value).includes(search))) return false;
+      const targetTitle = getGoalById(taskView.goal_id)?.title || '';
+      const goalThemeTitle = getGoalThemeForTask(taskView)?.title || '';
+      if(![taskView.title, taskView.category, targetTitle, goalThemeTitle].some(value => normalizeSearch(value).includes(search))) return false;
     }
     return true;
   };
@@ -1536,7 +1738,7 @@ function renderTodos(){
   const pendingBody = document.getElementById('todos-pending-tbody');
   if(pendingBody){
     if(!pending.length){
-      pendingBody.innerHTML = '<tr><td colspan="13"><div class="empty-state">Nothing pending.</div></td></tr>';
+      pendingBody.innerHTML = '<tr><td colspan="14"><div class="empty-state">Nothing pending.</div></td></tr>';
     } else {
       pendingBody.innerHTML = pending.map(task => {
         const due = daysUntil(task.deadline);
@@ -1550,6 +1752,8 @@ function renderTodos(){
         const target = getGoalById(task.goal_id);
         const goalTheme = getGoalThemeForTask(task);
         const canMove = !!task.dayItem && task.dayItem.status === 'planned';
+        const recurrenceText = recurrenceDescription(task);
+        const recurrenceLabel = recurrenceCycleLabel(task);
         return `
           <tr class="${highlighted ? 'hl-row' : ''}${task.highlight ? ' hl-bg' : ''}">
             <td class="c"><div class="cb" onclick="toggleTodo('${task.id}')"></div></td>
@@ -1557,10 +1761,11 @@ function renderTodos(){
             <td style="min-width:140px">
               <div style="display:flex;flex-direction:column;gap:4px">
                 <input class="ec" style="${highlighted ? 'font-weight:600' : ''}" value="${esc(task.title)}" onchange="editTask('${task.id}','title',this.value)" />
-                ${task.recurrenceSummary ? `<span class="mu" style="font-size:10.5px;display:flex;align-items:center;gap:4px"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(task.recurrenceSummary)}</span>` : ''}
+                ${recurrenceText ? `<span class="mu" style="font-size:10.5px;display:flex;align-items:center;gap:4px"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(recurrenceText)}</span>` : ''}
                 ${renderTaskHierarchyMeta(task)}
               </div>
             </td>
+            <td class="c"><button class="recurrence-cycle ${recurrenceLabel !== 'N' ? 'active' : ''}" type="button" onclick="cycleTaskRecurrence('${task.id}')" title="${esc(recurrenceText || 'Not recurring')}">${recurrenceLabel}</button></td>
             <td class="c"><div class="flag f-today ${task.today ? 'on' : ''}" onclick="toggleFlag('${task.id}','today')">${icoT(task.today)}</div></td>
             <td class="c"><div class="flag f-imp ${task.important ? 'on' : ''}" onclick="toggleFlag('${task.id}','important')">${icoI(task.important)}</div></td>
             <td class="c"><div class="flag f-urg ${task.urgent ? 'on' : ''}" onclick="toggleFlag('${task.id}','urgent')">${icoU(task.urgent)}</div></td>
@@ -1619,7 +1824,6 @@ function renderTodos(){
   }
 
   renderSummaryPills();
-  if(currentSection === 'schedule') renderTodayTodos();
 }
 
 async function addTodo(){
@@ -1671,9 +1875,9 @@ async function editTask(taskId, field, value){
   if(field === 'title') updates.title = value.trim();
   else updates[field] = value || null;
   try{
-    await apiPut('/tasks/' + taskId, updates);
-    Object.assign(task, updates);
-    syncTaskSnapshots(taskId, updates);
+    const payload = await apiPut('/tasks/' + taskId, updates);
+    if(payload?.error) throw new Error(payload.error);
+    applyTaskPayload(taskId, payload);
     renderTodos();
     renderTodayTodos();
   } catch (error){
@@ -1698,6 +1902,101 @@ async function editTaskDeadlineText(taskId, value){
   await editTask(taskId, 'deadline', iso);
 }
 
+function openTaskRecurrenceModal(taskId){
+  const task = getTaskById(taskId);
+  if(!task){
+    showToast('Task not found.', true);
+    return;
+  }
+  const repeat = task.recurrence?.repeat_unit || 'none';
+  const weekday = task.recurrence?.weekday ?? 0;
+  const monthday = task.recurrence?.day_of_month ?? 1;
+  const html = `
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Task</label><input value="${esc(task.title)}" disabled></div>
+      <div class="fg"><label>Repeat</label><select id="m-task-repeat" onchange="syncTaskRecurrenceEditorFields()">
+        <option value="none"${repeat === 'none' ? ' selected' : ''}>No repeat</option>
+        <option value="daily"${repeat === 'daily' ? ' selected' : ''}>Daily</option>
+        <option value="weekly"${repeat === 'weekly' ? ' selected' : ''}>Weekly</option>
+        <option value="monthly"${repeat === 'monthly' ? ' selected' : ''}>Monthly</option>
+      </select></div>
+      <div class="fg" id="m-task-weekday-group" style="display:none"><label>Weekday</label><select id="m-task-weekday">
+        <option value="0"${weekday === 0 ? ' selected' : ''}>Monday</option><option value="1"${weekday === 1 ? ' selected' : ''}>Tuesday</option><option value="2"${weekday === 2 ? ' selected' : ''}>Wednesday</option>
+        <option value="3"${weekday === 3 ? ' selected' : ''}>Thursday</option><option value="4"${weekday === 4 ? ' selected' : ''}>Friday</option><option value="5"${weekday === 5 ? ' selected' : ''}>Saturday</option>
+        <option value="6"${weekday === 6 ? ' selected' : ''}>Sunday</option>
+      </select></div>
+      <div class="fg" id="m-task-monthday-group" style="display:none"><label>Day of month</label><select id="m-task-monthday">
+        ${Array.from({ length: 31 }, (_, index) => `<option value="${index + 1}"${monthday === index + 1 ? ' selected' : ''}>${ordinal(index + 1)}</option>`).join('')}
+      </select></div>
+    </div>
+  `;
+  configureModal('Edit repeat', html, 'Save', () => saveTaskRecurrence(taskId));
+  syncTaskRecurrenceEditorFields();
+}
+
+async function saveTaskRecurrence(taskId){
+  const task = getTaskById(taskId);
+  if(!task) return;
+  const repeat = document.getElementById('m-task-repeat')?.value || 'none';
+  const recurrence = repeat === 'none' ? null : {
+    repeat_unit: repeat,
+    repeat_every: task.recurrence?.repeat_every || 1,
+    weekday: repeat === 'weekly' ? Number(document.getElementById('m-task-weekday')?.value || 0) : null,
+    day_of_month: repeat === 'monthly' ? Number(document.getElementById('m-task-monthday')?.value || 1) : null,
+    start_date: task.recurrence?.start_date || task.deadline || todayStr(),
+    is_active: true,
+  };
+  try{
+    const payload = await apiPut('/tasks/' + taskId, { recurrence });
+    if(payload?.error) throw new Error(payload.error);
+    applyTaskPayload(taskId, payload);
+    closeModal();
+    renderTodos();
+    renderTodayTodos();
+    showToast(recurrence ? 'Repeat updated' : 'Repeat removed');
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function setTaskRecurrencePreset(taskId, repeatUnit){
+  const task = getTaskById(taskId);
+  if(!task) return;
+  if(task.recurrence?.repeat_unit === repeatUnit){
+    openTaskRecurrenceModal(taskId);
+    return;
+  }
+  const recurrence = inferTaskRecurrenceDefaults(task, repeatUnit);
+  try{
+    const payload = await apiPut('/tasks/' + taskId, { recurrence });
+    if(payload?.error) throw new Error(payload.error);
+    applyTaskPayload(taskId, payload);
+    renderTodos();
+    renderTodayTodos();
+    showToast(`${repeatUnit === 'weekly' ? 'Weekly' : 'Monthly'} recurrence set`);
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
+async function cycleTaskRecurrence(taskId){
+  const task = getTaskById(taskId);
+  if(!task) return;
+  const nextUnit = nextRecurrenceUnit(task);
+  const recurrence = nextUnit === 'none' ? null : inferTaskRecurrenceDefaults(task, nextUnit);
+  try{
+    const payload = await apiPut('/tasks/' + taskId, { recurrence });
+    if(payload?.error) throw new Error(payload.error);
+    applyTaskPayload(taskId, payload);
+    renderTodos();
+    renderTodayTodos();
+    const label = nextUnit === 'none' ? 'Not recurring' : nextUnit === 'daily' ? 'Daily recurrence set' : nextUnit === 'weekly' ? 'Weekly recurrence set' : 'Monthly recurrence set';
+    showToast(label);
+  } catch (error){
+    showToast(`Error: ${error.message}`, true);
+  }
+}
+
 async function toggleTodo(taskId, options = {}){
   const task = state.tasks.find(item => item.id === taskId);
   if(!task) return;
@@ -1717,18 +2016,17 @@ async function toggleTodo(taskId, options = {}){
     let dayItem = getCurrentTaskItem(taskId);
     if(!dayItem && preserveFocus){
       dayItem = await ensureTaskPlannerItem(taskId, { templateItem: getCarryoverTaskItem(taskId) });
+      upsertCurrentDateItem(dayItem);
     }
     if(dayItem){
       const itemUpdates = nextDone
         ? { status: 'done', is_today_focus: preserveFocus ? true : false, is_highlight: false, updated_at: new Date().toISOString() }
         : { status: 'planned', is_today_focus: preserveFocus ? true : dayItem.is_today_focus, updated_at: new Date().toISOString() };
       await apiPut('/daily-plan-items/' + dayItem.id, itemUpdates);
+      mergeCurrentDateItem(dayItem.id, itemUpdates);
     }
-
-    await loadCurrentDateItems();
-    renderTodos();
-    renderTodayTodos();
-    renderSummaryPills();
+    state.carryoverTaskItems = state.carryoverTaskItems.filter(item => item.task_id !== taskId);
+    renderTaskPanels();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -1753,12 +2051,11 @@ async function toggleTaskCancelled(taskId){
       );
       for(const item of matchingItems){
         await apiPut('/daily-plan-items/' + item.id, plannerUpdates);
+        mergeCurrentDateItem(item.id, plannerUpdates);
       }
     }
-    await loadCurrentDateItems();
-    renderTodos();
-    renderTodayTodos();
-    renderSummaryPills();
+    state.carryoverTaskItems = state.carryoverTaskItems.filter(item => item.task_id !== taskId);
+    renderTaskPanels();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -1813,12 +2110,17 @@ async function toggleFlag(taskId, flag){
 
   try{
     let item = getCurrentTaskItem(taskId);
-    if(!item) item = await ensureTaskPlannerItem(taskId, { templateItem: getCarryoverTaskItem(taskId) });
+    if(!item){
+      item = await ensureTaskPlannerItem(taskId, { templateItem: getCarryoverTaskItem(taskId) });
+      upsertCurrentDateItem(item);
+    }
     const nextValue = !item[dbField];
     await apiPut('/daily-plan-items/' + item.id, { [dbField]: nextValue, updated_at: new Date().toISOString() });
-    await loadCurrentDateItems();
-    renderTodos();
-    renderTodayTodos();
+    mergeCurrentDateItem(item.id, { [dbField]: nextValue, updated_at: new Date().toISOString() });
+    if(dbField === 'is_today_focus' && nextValue){
+      state.carryoverTaskItems = state.carryoverTaskItems.filter(entry => entry.task_id !== taskId);
+    }
+    renderTaskPanels();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -1830,9 +2132,7 @@ async function deleteTask(taskId){
     state.tasks = state.tasks.filter(task => task.id !== taskId);
     state.currentDateItems = state.currentDateItems.filter(item => item.task_id !== taskId);
     state.carryoverTaskItems = state.carryoverTaskItems.filter(item => item.task_id !== taskId);
-    renderTodos();
-    renderTodayTodos();
-    renderSummaryPills();
+    renderTaskPanels();
     showToast('To-do deleted');
   } catch (error){
     showToast(`Error: ${error.message}`, true);
@@ -1875,7 +2175,7 @@ function renderTodayTodos(){
         <tr class="${item.is_highlight ? 'hl-bg' : ''}">
           <td class="c"><div class="cb" onclick="todayToggleDone('${item.task_id}')"></div></td>
           <td>${todayTodoEditMode?`<select class="isel chip-select ${catChipClass(item.category_snapshot)}" onchange="editTask('${item.task_id}','category',this.value)">${CATS.map(cat => `<option value="${esc(cat)}"${item.category_snapshot === cat ? ' selected' : ''}>${esc(cat)}</option>`).join('')}</select>`:catChip(item.category_snapshot)}</td>
-          <td style="min-width:240px">${todayTodoEditMode?`<div class="today-task-edit-cell"><input class="ec today-task-title-input" style="${item.is_highlight ? 'font-weight:600' : ''}" value="${esc(item.title_snapshot)}" onchange="editTask('${item.task_id}','title',this.value)" />${item.recurrenceSummary ? `<span class="mu today-task-meta"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(item.recurrenceSummary)}</span>` : ''}</div>`:`<button class="schedule-quick-fill${item.is_highlight ? ' is-highlight' : ''}" type="button" title="Click to add this task to the schedule" data-task-id="${esc(item.task_id)}" data-title="${esc(item.title_snapshot)}" onmousedown="event.preventDefault()" onclick="insertTodoIntoSchedule(this.dataset.taskId, this.dataset.title)">${esc(item.title_snapshot)}</button>${item.recurrenceSummary ? `<div class="mu today-task-meta"><i class="ti ti-repeat" style="font-size:11px"></i>${esc(item.recurrenceSummary)}</div>` : ''}`}</td>
+          <td style="min-width:240px">${todayTodoEditMode?`<div class="today-task-edit-cell"><input class="ec today-task-title-input" style="${item.is_highlight ? 'font-weight:600' : ''}" value="${esc(item.title_snapshot)}" onchange="editTask('${item.task_id}','title',this.value)" /></div>`:`<button class="schedule-quick-fill${item.is_highlight ? ' is-highlight' : ''}" type="button" title="Click to add this task to the schedule" data-task-id="${esc(item.task_id)}" data-title="${esc(item.title_snapshot)}" onmousedown="event.preventDefault()" onclick="insertTodoIntoSchedule(this.dataset.taskId, this.dataset.title)">${esc(item.title_snapshot)}</button>`}</td>
           <td><div class="today-reorder-controls"><button class="btn-ghost" onclick="openMoveTaskModal('${item.task_id}','${item.id}')">Move</button><div class="today-reorder-buttons"><button class="today-reorder-btn" onclick="reorderTodayItem('${item.task_id}',-1)" ${todayItems[0]?.task_id===item.task_id?'disabled':''} title="Move up"><i class="ti ti-chevron-up"></i></button><button class="today-reorder-btn" onclick="reorderTodayItem('${item.task_id}',1)" ${todayItems[todayItems.length-1]?.task_id===item.task_id?'disabled':''} title="Move down"><i class="ti ti-chevron-down"></i></button></div></div></td>
           <td class="c"><div class="cb-star ${item.is_highlight ? 'on' : ''}" onclick="toggleHighlight('${item.task_id}')">${icoStar(item.is_highlight)}</div></td>
         </tr>
@@ -2133,10 +2433,7 @@ function toggleAutoTime(){
 async function loadSchedule(){
   try{
     await loadCurrentDateItems();
-    renderScheduleQuickActivities();
-    renderTodos();
-    renderTodayTodos();
-    renderSched(getSelectedDate());
+    renderScheduleSection();
   } catch (error){
     showToast(`Error: ${error.message}`, true);
   }
@@ -2510,6 +2807,7 @@ function openModal(type){
       <div class="fg"><label>Linked milestone</label><select id="m-td-linked">${goalOpts}</select></div>
       <div class="fg"><label>Repeat</label><select id="m-td-repeat" onchange="syncTaskRecurrenceFields()">
         <option value="none">Does not repeat</option>
+        <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
         <option value="monthly">Monthly</option>
       </select></div>
@@ -3011,12 +3309,4 @@ function bgClose(event){
   if(event.target === document.getElementById('modal-bg')) closeModal();
 }
 
-// ─── Boot ──────────────────────────────────────────
-
-async function boot(){
-  await initShell();
-  updateTopbarForSection();
-  await loadDataAndRender();
-}
-
-boot();
+// Planner initialization is triggered lazily from the shared app shell.

@@ -55,6 +55,9 @@ uvicorn api.main:app --reload
    If you already created the finance snapshot table before the date column was added, also run [sql/011_add_finance_snapshot_date.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/sql/011_add_finance_snapshot_date.sql).
    To enable saved transfer/exchange records that also adjust Finance Situation balances, run [sql/022_create_exchange_records.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/sql/022_create_exchange_records.sql).
    If you already enabled transfer/exchange records before fees were added, also run [sql/023_add_exchange_fee_amount.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/Expense%20Marker/sql/023_add_exchange_fee_amount.sql).
+   To allow negative expense amounts for discounts and refunds, run [sql/024_allow_negative_expense_amounts.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/Expense%20Marker/sql/024_allow_negative_expense_amounts.sql).
+   To create and seed the category catalog, run [sql/025_create_category_catalog.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/Expense%20Marker/sql/025_create_category_catalog.sql).
+   If your category catalog already exists and you want the new `Discount` category added, also run [sql/034_add_discount_category.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/Expense%20Marker/sql/034_add_discount_category.sql).
 3. Set the `SUPABASE_*` environment variables with your own database credentials before starting the app.
 
 Notes:
@@ -63,6 +66,7 @@ Notes:
 - Keep `SUPABASE_SSLMODE=require`.
 - The database schema is expense-only for the current stage and does not include `transaction_type`.
 - New expenses can store an optional `payment_method` such as `Monzo`, `HSBC`, or `Cash`.
+- Negative expenses are supported for discounts and refunds after `sql/024_allow_negative_expense_amounts.sql` has been applied. If the database is missing that migration, saving a negative expense will fail.
 - The app also includes a separate `Finance Situation` page for current balance snapshot rows by institution, account, currency, and snapshot date.
 - The `Finance Situation` page can also store transfers and exchange records, including optional receiving-side fees in the destination currency, and apply the paired balance adjustments there without affecting expense or income reports.
 - Row Level Security is enabled on `public.transactions`, with no public policies added by default.

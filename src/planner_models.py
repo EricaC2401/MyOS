@@ -294,8 +294,8 @@ def validate_task(data: dict) -> TaskData:
 def validate_recurring_task_template(data: dict) -> RecurringTaskTemplateData:
     title = _require_text(data, "title")
     repeat_unit = (_opt_text(data, "repeat_unit") or "").lower()
-    if repeat_unit not in ("weekly", "monthly"):
-        raise ValidationError("repeat_unit must be 'weekly' or 'monthly'.")
+    if repeat_unit not in ("daily", "weekly", "monthly"):
+        raise ValidationError("repeat_unit must be 'daily', 'weekly' or 'monthly'.")
 
     weekday = _parse_weekday(data.get("weekday"), "weekday")
     day_of_month = _opt_int(data, "day_of_month")
@@ -304,7 +304,10 @@ def validate_recurring_task_template(data: dict) -> RecurringTaskTemplateData:
     if start_date is None:
         raise ValidationError("start_date is required.")
 
-    if repeat_unit == "weekly":
+    if repeat_unit == "daily":
+        weekday = None
+        day_of_month = None
+    elif repeat_unit == "weekly":
         if weekday is None:
             raise ValidationError("weekday is required for weekly recurrence.")
         day_of_month = None
@@ -343,6 +346,9 @@ def get_next_recurring_task_due_date(
         return None
 
     candidate = max(from_date or date.today(), template.start_date)
+
+    if template.repeat_unit == "daily":
+        return candidate
 
     if template.repeat_unit == "weekly":
         days_ahead = (template.weekday - candidate.weekday()) % 7

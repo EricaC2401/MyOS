@@ -4,7 +4,7 @@ create table if not exists public.recurring_task_templates (
     category text,
     area text,
     goal_id uuid references public.goals (id) on delete set null,
-    repeat_unit text not null check (repeat_unit in ('weekly', 'monthly')),
+    repeat_unit text not null check (repeat_unit in ('daily', 'weekly', 'monthly')),
     repeat_every integer not null default 1 check (repeat_every > 0),
     weekday integer check (weekday between 0 and 6),
     day_of_month integer check (day_of_month between 1 and 31),
@@ -13,6 +13,7 @@ create table if not exists public.recurring_task_templates (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     constraint recurring_task_templates_rule_check check (
+        (repeat_unit = 'daily' and weekday is null and day_of_month is null) or
         (repeat_unit = 'weekly' and weekday is not null and day_of_month is null) or
         (repeat_unit = 'monthly' and day_of_month is not null and weekday is null)
     )

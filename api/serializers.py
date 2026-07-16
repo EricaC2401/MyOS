@@ -335,9 +335,11 @@ def serialize_task(stored) -> dict[str, Any]:
         recurrence = {
             "template_id": stored.recurring_template_id,
             "repeat_unit": stored.recurring_repeat_unit,
+            "repeat_every": 1,
             "weekday": stored.recurring_weekday,
             "day_of_month": stored.recurring_day_of_month,
             "is_active": stored.recurring_is_active,
+            "start_date": _date_or_none(stored.recurring_occurrence_date) or _date_or_none(stored.deadline),
         }
     return {
         "id": stored.id,

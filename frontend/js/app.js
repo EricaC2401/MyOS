@@ -17,6 +17,45 @@ const pages = {
 
 const TAX_DEFAULT_START_DATE = '2021-04-01';
 const DEFAULT_EXPENSE_PAYMENT_METHOD = 'Monzo Current';
+const FALLBACK_CATEGORY_SEED = [
+  'Housing',
+  'Groceries',
+  'C Groceries',
+  'Food',
+  'Drink',
+  'Discount',
+  'Transport',
+  'Car Related: Fuel',
+  'Car Related: Parking',
+  'Car Related: Annual',
+  'Car Related: One-off',
+  'Car Related: Other',
+  'Eating out',
+  'Shopping',
+  'Bills',
+  'Subscriptions',
+  'Healthcare',
+  'Travel',
+  'Gift',
+  'Dating',
+  'Exam',
+  'Visa',
+  'Money Transfer',
+  'Flight Ticket',
+  'Learning',
+  'Learning to Drive',
+  'Electronics',
+  'Tax',
+  'Trip',
+  'Necessaries',
+  'Appearance Related',
+  'Clothing',
+  'Snacks',
+  'Gathering',
+  'LH',
+  'Other',
+  'Uncategorised',
+];
 
 let currentPage = 'dashboard';
 let dashboardBasis = 'paid';
@@ -563,6 +602,9 @@ async function buildFallbackCategoryCatalog() {
   try {
     const expenses = await apiGet('/expenses');
     const counts = {};
+    FALLBACK_CATEGORY_SEED.forEach(category => {
+      counts[`Living\t${category}`] = 0;
+    });
     for (const exp of expenses) {
       const cat = (exp.category || '').trim();
       const grp = (exp.group || '').trim();
@@ -576,8 +618,50 @@ async function buildFallbackCategoryCatalog() {
       return { id: id--, category, group_name, usage_count: count, is_active: true };
     });
   } catch (e) {
-    return [];
+    let id = -1;
+    return FALLBACK_CATEGORY_SEED.map(category => ({
+      id: id--,
+      category,
+      group_name: 'Living',
+      usage_count: 0,
+      is_active: true,
+    }));
   }
+}
+
+function ensureSeededCategories(entries = []) {
+  const merged = new Map();
+
+  entries.forEach(entry => {
+    const groupName = normalizeText(entry.group_name) || 'Living';
+    const category = normalizeText(entry.category);
+    if (!category) return;
+    merged.set(`${groupName}\t${category}`.toLowerCase(), {
+      ...entry,
+      group_name: groupName,
+      category,
+    });
+  });
+
+  let syntheticId = -1;
+  FALLBACK_CATEGORY_SEED.forEach(category => {
+    const key = `Living\t${category}`.toLowerCase();
+    if (!merged.has(key)) {
+      merged.set(key, {
+        id: syntheticId--,
+        category,
+        group_name: 'Living',
+        usage_count: 0,
+        is_active: true,
+      });
+    }
+  });
+
+  return [...merged.values()].sort((a, b) => {
+    const groupCompare = a.group_name.localeCompare(b.group_name);
+    if (groupCompare !== 0) return groupCompare;
+    return a.category.localeCompare(b.category);
+  });
 }
 
 function populateExpenseGroupOptions() {
@@ -750,14 +834,14 @@ async function loadCategoryCatalog(forceRefresh = false) {
 
   try {
     const data = await apiGet('/categories');
-    categoryCatalog = data.categories || [];
+    categoryCatalog = ensureSeededCategories(data.categories || []);
     categoryGroups = data.groups || [];
     if (typeof setCategoryColorsFromEntries === 'function') {
       setCategoryColorsFromEntries(categoryCatalog);
     }
     setCategoryManagerAvailability(true);
   } catch (error) {
-    categoryCatalog = await buildFallbackCategoryCatalog();
+    categoryCatalog = ensureSeededCategories(await buildFallbackCategoryCatalog());
     categoryGroups = expenseMetadata?.groups || [];
     if (typeof setCategoryColorsFromEntries === 'function') {
       setCategoryColorsFromEntries(categoryCatalog);
@@ -2053,6 +2137,18 @@ function setExpenseFormStatus(message = '', type = '') {
   statusEl.className = type ? `form-status ${type}` : 'form-status';
 }
 
+function formatExpenseSaveError(error, payload) {
+  const baseMessage = `Could not save expense: ${error.message}`;
+  if (
+    payload
+    && Number(payload.amount_gbp) < 0
+    && /Internal Server Error/i.test(error.message || '')
+  ) {
+    return `${baseMessage}. If this is a negative expense, run sql/024_allow_negative_expense_amounts.sql in Supabase first.`;
+  }
+  return baseMessage;
+}
+
 function updateExpenseSaveButton() {
   const saveButton = document.getElementById('expense-save-btn');
   if (!saveButton) return;
@@ -2111,7 +2207,7 @@ async function saveExpense() {
     expenseMetadata = null;
     await loadExpensesPage(true);
   } catch (error) {
-    setExpenseFormStatus(`Could not save expense: ${error.message}`, 'error');
+    setExpenseFormStatus(formatExpenseSaveError(error, payload), 'error');
   }
 }
 
@@ -2580,9 +2676,14 @@ function updatePeriodHint(dates) {
 
 let currentArea = 'home';
 let plannerInitialized = false;
+const LAST_AREA_STORAGE_KEY = 'myos_last_area';
+const LAST_FINANCE_PAGE_STORAGE_KEY = 'myos_last_finance_page';
+const RECURRING_SYNC_DATE_STORAGE_KEY = 'myos_recurring_sync_date';
 
 function navArea(area, el) {
+  const previousArea = currentArea;
   currentArea = area;
+  try { sessionStorage.setItem(LAST_AREA_STORAGE_KEY, area); } catch (error) {}
 
   // Switch sidebar mode
   document.querySelectorAll('.sb-mode').forEach(m => m.style.display = 'none');
@@ -2622,7 +2723,12 @@ function navArea(area, el) {
     document.getElementById('page-title').textContent = 'Home';
     loadHomePage();
   } else if (area === 'finance') {
-    navFinanceSub('dashboard');
+    let initialFinancePage = 'dashboard';
+    try {
+      const storedFinancePage = sessionStorage.getItem(LAST_FINANCE_PAGE_STORAGE_KEY);
+      if (storedFinancePage && pages[storedFinancePage]) initialFinancePage = storedFinancePage;
+    } catch (error) {}
+    navFinanceSub(initialFinancePage, null, previousArea !== 'finance');
   } else if (area === 'planner') {
     if (!plannerInitialized) {
       plannerInitialized = true;
@@ -2637,17 +2743,20 @@ function navArea(area, el) {
   }
 }
 
-function navFinanceSub(id, el) {
+function navFinanceSub(id, el, forceLoad = false) {
+  const enteringFinance = forceLoad || currentArea !== 'finance';
   if (currentArea !== 'finance') {
     navArea('finance');
   }
+  const isSamePage = currentPage === id;
+  const sec = document.getElementById('sec-' + id);
+  const wasActive = !!sec?.classList.contains('active');
   // Clear nav active states in finance sidebar
   document.querySelectorAll('#sb-mode-finance .nav').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
 
   // Show the correct finance section
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  const sec = document.getElementById('sec-' + id);
   if (sec) sec.classList.add('active');
 
   const p = pages[id];
@@ -2659,8 +2768,11 @@ function navFinanceSub(id, el) {
     if (basisToggle) basisToggle.style.display = id === 'dashboard' ? 'flex' : 'none';
   }
   currentPage = id;
+  try { sessionStorage.setItem(LAST_FINANCE_PAGE_STORAGE_KEY, id); } catch (error) {}
   syncPeriodSelector();
-  loadPageData(id);
+  if (enteringFinance || !isSamePage || !wasActive) {
+    loadPageData(id);
+  }
 }
 
 function nav(id, el) {
@@ -2716,10 +2828,16 @@ function shouldSyncRecurringForPage(page) {
 async function loadPageData(page) {
   if (!_dbReady) return;
   if (shouldSyncRecurringForPage(page)) {
-    try {
-      await ensureRecurringTransactionsCurrent();
-    } catch (error) {
-      console.error('Recurring sync failed:', error);
+    if (page === 'recurring') {
+      try {
+        await ensureRecurringTransactionsCurrent();
+      } catch (error) {
+        console.error('Recurring sync failed:', error);
+      }
+    } else {
+      ensureRecurringTransactionsCurrent().catch(error => {
+        console.error('Recurring sync failed:', error);
+      });
     }
   }
   if (page === 'dashboard') {
@@ -4162,6 +4280,9 @@ let recurringGenerationSyncDate = '';
 
 async function ensureRecurringTransactionsCurrent(force = false) {
   const todayKey = toISODate(todayDate());
+  if (!recurringGenerationSyncDate) {
+    try { recurringGenerationSyncDate = sessionStorage.getItem(RECURRING_SYNC_DATE_STORAGE_KEY) || ''; } catch (error) {}
+  }
   if (!force && recurringGenerationSyncDate === todayKey) return;
 
   await Promise.all([
@@ -4170,6 +4291,7 @@ async function ensureRecurringTransactionsCurrent(force = false) {
   ]);
 
   recurringGenerationSyncDate = todayKey;
+  try { sessionStorage.setItem(RECURRING_SYNC_DATE_STORAGE_KEY, todayKey); } catch (error) {}
   expenseMetadata = null;
   incomeMetadata = null;
   taxMetadata = null;
@@ -5115,6 +5237,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   clearFinanceForm();
   syncPeriodSelector();
   if (dbReady) {
-    navArea('home', document.querySelector('.sidebar .nav:first-of-type'));
+    let initialArea = 'home';
+    try {
+      const storedArea = sessionStorage.getItem(LAST_AREA_STORAGE_KEY);
+      if (storedArea && ['home', 'finance', 'planner', 'data', 'settings'].includes(storedArea)) {
+        initialArea = storedArea;
+      }
+    } catch (error) {}
+    navArea(initialArea, initialArea === 'home' ? document.querySelector('#sb-mode-home .nav:first-of-type') : null);
   }
 });

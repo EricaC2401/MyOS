@@ -123,6 +123,21 @@ def test_validate_expense_transaction_keeps_manual_category_override() -> None:
     assert transaction.category == "Food"
 
 
+def test_validate_expense_transaction_preserves_discount_category() -> None:
+    transaction = validate_expense_transaction(
+        {
+            "transaction_date": "2026-05-02",
+            "description": "Promotional credit",
+            "category": "Discount",
+            "amount_gbp": "-8.00",
+            "tax_deductable": False,
+            "payment_method": None,
+        }
+    )
+
+    assert transaction.category == "Discount"
+
+
 def test_validate_expense_transaction_accepts_month_name_date_format() -> None:
     transaction = validate_expense_transaction(
         {
@@ -361,6 +376,20 @@ def test_validate_recurring_expense_template_accepts_negative_amount() -> None:
     )
 
     assert template.amount_gbp == Decimal("-9.99")
+
+
+def test_validate_recurring_expense_template_preserves_discount_category() -> None:
+    template = validate_recurring_expense_template(
+        {
+            "description": "Promotional credit",
+            "category": "Discount",
+            "amount_gbp": "-9.99",
+            "day_of_month": 1,
+            "start_date": "2026-01-01",
+        }
+    )
+
+    assert template.category == "Discount"
 
 
 def test_validate_recurring_income_template_defaults_taxable_true() -> None:

@@ -17,6 +17,7 @@ from src.db import (
     fetch_classification_mappings,
     fetch_finance_snapshot_entries,
     fetch_hmrc_monthly_exchange_rates,
+    fetch_hmrc_monthly_exchange_rates_batch,
     fetch_income_tax_due_entries,
     fetch_income_transactions,
     fetch_transactions,
@@ -64,8 +65,8 @@ from api.serializers import _dec
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
-_REPORT_SOURCE_CACHE_TTL_SECONDS = 2.0
-_REPORT_CLASSIFICATION_CACHE_TTL_SECONDS = 30.0
+_REPORT_SOURCE_CACHE_TTL_SECONDS = 300.0
+_REPORT_CLASSIFICATION_CACHE_TTL_SECONDS = 300.0
 _report_source_cache: dict[str, tuple[float, object]] = {}
 
 
@@ -171,14 +172,20 @@ def _get_expense_month_rates(expenses):
             if expense.amount_hkd is not None and Decimal(expense.amount_hkd) > 0
         }
     )
-    rates_by_month = {}
-    for month_anchor in month_anchors:
-        cached_rates = fetch_hmrc_monthly_exchange_rates(month_anchor)
-        if not cached_rates:
+    if not month_anchors:
+        return {}
+    # Fetch all months in a single DB query
+    rates_by_month = fetch_hmrc_monthly_exchange_rates_batch(month_anchors)
+    # Fetch from HMRC for any months not yet in DB, then store them
+    # Silently skip months where HMRC hasn't published rates yet (e.g. current month)
+    missing = [m for m in month_anchors if not rates_by_month.get(m)]
+    for month_anchor in missing:
+        try:
             fetched_rates = fetch_hmrc_monthly_rates(month_anchor.year, month_anchor.month)
             upsert_hmrc_monthly_exchange_rates(month_anchor, fetched_rates)
-            cached_rates = fetched_rates
-        rates_by_month[month_anchor] = cached_rates
+            rates_by_month[month_anchor] = fetched_rates
+        except Exception:
+            pass
     return rates_by_month
 
 

@@ -46,11 +46,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .btn-secondary:hover{background:#f4f6fb}
 .btn-ghost{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:1px solid #e0e4ef;background:#fff;color:#5a6478;cursor:pointer;font-size:12px}
 .today-todo-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.today-task-edit-cell{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.today-task-edit-cell{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .today-task-title-input{width:100%;min-width:0}
-.today-task-meta{font-size:10.5px;display:flex;align-items:center;gap:4px}
-.today-reorder-controls{display:flex;align-items:center;gap:6px}
-.today-reorder-buttons{display:flex;align-items:center;gap:4px}
+.today-task-meta{font-size:10px;display:flex;align-items:center;gap:4px;line-height:1.2}
+.today-reorder-controls{display:flex;align-items:center;gap:4px}
+.today-reorder-buttons{display:flex;align-items:center;gap:3px}
 .today-reorder-btn{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e0e4ef;border-radius:7px;background:#fff;color:#7a8399;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0}
 .today-reorder-btn:hover:not(:disabled){background:#f4f6fb;color:#534AB7;border-color:#534AB7}
 .today-reorder-btn:disabled{opacity:0.35;cursor:default}
@@ -193,6 +193,9 @@ table.data-tbl tr:hover td{background:#fafbfd}
 .btn-inline:hover{background:#f4f6fb}
 .btn-inline.danger{border-color:#f1c6c2;color:#c0392b}
 .btn-inline.danger:hover{background:#fff4f3}
+.recurrence-cycle{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 8px;border-radius:999px;border:1px solid #d8dced;background:#fff;color:#6b778c;cursor:pointer;font-size:10.5px;font-weight:700;letter-spacing:0.01em;font-family:inherit}
+.recurrence-cycle:hover{background:#e2efff;border-color:#bfd2f4;color:#314a64}
+.recurrence-cycle.active{background:#eef6ff;border-color:#bfd2f4;color:#314a64}
 
 /* ── FORM ── */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -582,6 +585,12 @@ td:has(.ec:focus){background:#f7f9ff!important}
 .schedule-quick-fill{display:block;width:100%;padding:14px 0;border:none;background:none;color:#1a1f2e;font:inherit;text-align:left;cursor:pointer}
 .schedule-quick-fill:hover,.schedule-quick-fill:focus{color:#534AB7;text-decoration:underline}
 .schedule-quick-fill.is-highlight{font-weight:700}
+.today-todo-table td{padding-top:10px;padding-bottom:10px;vertical-align:middle}
+.today-todo-table td:nth-child(2) .chip{padding:6px 12px;font-size:11px}
+.today-todo-table .schedule-quick-fill{padding:8px 0}
+.today-todo-table .schedule-quick-fill + .today-task-meta{margin-top:1px}
+.today-todo-table .cb{width:15px;height:15px}
+.today-todo-table .cb-star{width:22px;height:22px}
 .sched-note{width:150px;flex-shrink:0;padding:5px 9px;border-right:1px solid #f3f4f8}
 .sched-note input{width:100%;border:none;background:transparent;font-size:11.5px;color:#8492a6;outline:none;font-family:inherit}
 .sched-note input::placeholder{color:#c0c8d8}

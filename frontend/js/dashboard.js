@@ -431,17 +431,16 @@ function renderDashboardFinanceSnapshot(summary, totals) {
 
 async function loadDashboardFinanceSnapshot() {
   try {
-    const overview = await apiGet('/finance/overview');
-    const excluding = (overview.scenario_totals || []).find((row) => row.scenario === "Excluding Mum's Time D");
-    const including = (overview.scenario_totals || []).find((row) => row.scenario === "Including Mum's Time D");
+    const overview = await apiGet('/reports/dashboard-finance');
+    const totals = overview.finance_totals || {};
     renderDashboardFinanceSnapshot(
-      overview.currency_totals || [],
+      overview.finance_currency_summary || [],
       {
-        total_gbp_excluding_mums_time_d: excluding?.total_gbp,
-        total_hkd_excluding_mums_time_d: excluding?.total_hkd,
-        total_gbp_including_mums_time_d: including?.total_gbp,
-        total_hkd_including_mums_time_d: including?.total_hkd,
-        rate_gbp_hkd: overview.rate_gbp_hkd,
+        total_gbp_excluding_mums_time_d: totals.total_gbp_excluding_mums_time_d,
+        total_hkd_excluding_mums_time_d: totals.total_hkd_excluding_mums_time_d,
+        total_gbp_including_mums_time_d: totals.total_gbp_including_mums_time_d,
+        total_hkd_including_mums_time_d: totals.total_hkd_including_mums_time_d,
+        rate_gbp_hkd: totals.rate_gbp_hkd,
       },
     );
   } catch (e) {

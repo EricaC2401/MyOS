@@ -10,6 +10,7 @@ from typing import Any
 import os
 
 import psycopg2
+from psycopg2.errors import CheckViolation
 from psycopg2.errors import UndefinedColumn, UndefinedTable
 from psycopg2.extensions import (
     TRANSACTION_STATUS_INERROR,
@@ -204,6 +205,7 @@ class StoredTaxDueEntry:
 
 LINKED_PAYMENT_METHODS = {
     "Monzo Current": ("Monzo", "Current", "GBP"),
+    "Tesco Bank Credit Card": ("Tesco Bank", "Credit Card", "GBP"),
     "HSBC HK GBP": ("HSBC HK", "GBP", "GBP"),
     "HSBC HK HKD": ("HSBC HK", "HKD", "HKD"),
     "HSBC UK Savings": ("HSBC UK", "Savings", "GBP"),
@@ -256,17 +258,13 @@ def _resolve_finance_link_for_amounts(
 
     institution, account, currency = link
     if currency == "GBP":
-        if Decimal(amount_gbp) <= 0:
-            raise FinanceLinkError(
-                f"Payment method '{normalized}' requires a GBP amount."
-            )
+        if Decimal(amount_gbp) == 0:
+            return None
         return institution, account, currency, Decimal(amount_gbp)
 
     if currency == "HKD":
-        if amount_hkd is None or Decimal(amount_hkd) <= 0:
-            raise FinanceLinkError(
-                f"Payment method '{normalized}' requires an HKD amount."
-            )
+        if amount_hkd is None or Decimal(amount_hkd) == 0:
+            return None
         return institution, account, currency, Decimal(amount_hkd)
 
     raise FinanceLinkError(
@@ -611,6 +609,20 @@ def _row_to_tax_due_entry(row: dict[str, Any]) -> StoredTaxDueEntry:
 def _run_with_reconnect(operation):
     try:
         return operation(ensure_connection())
+    except CheckViolation as exc:
+        _safe_rollback(get_connection())
+        constraint_name = getattr(getattr(exc, "diag", None), "constraint_name", "") or ""
+        if constraint_name in {
+            "transactions_amount_gbp_check",
+            "transactions_amount_hkd_check",
+            "recurring_expenses_amount_gbp_check",
+            "recurring_expenses_amount_hkd_check",
+        }:
+            raise DatabaseSchemaError(
+                "Negative expense amounts require the latest Supabase SQL migrations. "
+                "Run `sql/024_allow_negative_expense_amounts.sql`, then reload the app."
+            ) from exc
+        raise
     except (UndefinedTable, UndefinedColumn) as exc:
         _safe_rollback(get_connection())
         raise DatabaseSchemaError(
@@ -1369,6 +1381,32 @@ def fetch_income_transactions(limit: int | None = None) -> list[StoredIncomeTran
             cur.execute(sql, params)
             rows = cur.fetchall()
         return [_row_to_income_transaction(row) for row in rows]
+
+    return _run_with_reconnect(operation)
+
+
+def fetch_hmrc_monthly_exchange_rates_batch(rate_months: list[date]) -> dict[date, dict[str, Decimal]]:
+    """Fetch HMRC monthly exchange rates for multiple months in a single query."""
+    if not rate_months:
+        return {}
+    anchors = [_get_month_anchor(m) for m in rate_months]
+    sql = """
+        select rate_month, currency_code, units_per_gbp
+        from public.hmrc_monthly_exchange_rates
+        where rate_month = any(%s)
+        order by rate_month asc, currency_code asc;
+    """
+
+    def operation(conn: PGConnection) -> dict[date, dict[str, Decimal]]:
+        with conn.cursor() as cur:
+            cur.execute(sql, (anchors,))
+            rows = cur.fetchall()
+        result: dict[date, dict[str, Decimal]] = {}
+        for row in rows:
+            month = row["rate_month"]
+            code = str(row["currency_code"]).upper()
+            result.setdefault(month, {})[code] = Decimal(row["units_per_gbp"])
+        return result
 
     return _run_with_reconnect(operation)
 

@@ -36,6 +36,28 @@ async def lifespan(app: FastAPI):
     except (DatabaseConnectionError, DatabaseSchemaError):
         pass
 
+    # Pre-warm report and finance caches so the first page load is fast
+    try:
+        from api.routers.reports import (
+            _get_report_transactions,
+            _get_report_income_transactions,
+            _get_report_tax_due_entries,
+            _get_expense_month_rates,
+            _build_dashboard_finance_payload,
+        )
+        from src.finance_dashboard_cache import set_finance_dashboard_cache
+        transactions = _get_report_transactions()
+        _get_report_income_transactions()
+        _get_report_tax_due_entries()
+        # Pre-fetch HMRC rates for all months in the transaction history
+        try:
+            _get_expense_month_rates(transactions)
+        except Exception:
+            pass
+        set_finance_dashboard_cache(_build_dashboard_finance_payload())
+    except Exception:
+        pass
+
     yield
 
 

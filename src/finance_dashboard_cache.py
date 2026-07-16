@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-_CACHE_TTL_SECONDS = 60.0
+_CACHE_TTL_SECONDS = 300.0
 _finance_dashboard_cache: dict[str, Any] = {
     "expires_at": 0.0,
     "payload": None,

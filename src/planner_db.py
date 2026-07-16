@@ -1078,6 +1078,160 @@ def update_recurring_task_template(template_id: int, data: RecurringTaskTemplate
     return _run_with_reconnect(op)
 
 
+def set_task_recurrence(
+    task_id: str,
+    recurrence_data: RecurringTaskTemplateData | None,
+) -> StoredTask | None:
+    def op(conn):
+        _require_recurring_task_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select id, title, category, area, goal_id, deadline,
+                       recurring_template_id, recurring_occurrence_date
+                from public.tasks
+                where id = %s
+                for update;
+                """,
+                (task_id,),
+            )
+            existing = cur.fetchone()
+            if not existing:
+                conn.commit()
+                return None
+
+            if recurrence_data is None:
+                template_id = existing.get("recurring_template_id")
+                if template_id is not None:
+                    cur.execute(
+                        """
+                        update public.recurring_task_templates
+                        set is_active = false,
+                            updated_at = now()
+                        where id = %s;
+                        """,
+                        (template_id,),
+                    )
+                    cur.execute(
+                        """
+                        update public.tasks
+                        set recurring_template_id = null,
+                            recurring_occurrence_date = null,
+                            updated_at = now()
+                        where recurring_template_id = %s
+                          and is_done = false
+                          and is_cancelled = false;
+                        """,
+                        (template_id,),
+                    )
+                else:
+                    cur.execute(
+                        "update public.tasks set updated_at = now() where id = %s;",
+                        (task_id,),
+                    )
+                conn.commit()
+                return fetch_task_by_id(task_id)
+
+            occurrence_anchor = (
+                existing.get("recurring_occurrence_date")
+                or existing.get("deadline")
+                or recurrence_data.start_date
+            )
+            next_due_date = get_next_recurring_task_due_date(
+                recurrence_data,
+                from_date=occurrence_anchor,
+            )
+            if next_due_date is None:
+                next_due_date = recurrence_data.start_date
+
+            template_id = existing.get("recurring_template_id")
+            if template_id is None:
+                cur.execute(
+                    f"""
+                    insert into public.recurring_task_templates (
+                        title, category, area, goal_id, repeat_unit, repeat_every,
+                        weekday, day_of_month, start_date, is_active
+                    )
+                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    returning id;
+                    """,
+                    (
+                        recurrence_data.title,
+                        recurrence_data.category,
+                        recurrence_data.area,
+                        recurrence_data.goal_id,
+                        recurrence_data.repeat_unit,
+                        recurrence_data.repeat_every,
+                        recurrence_data.weekday,
+                        recurrence_data.day_of_month,
+                        recurrence_data.start_date,
+                        recurrence_data.is_active,
+                    ),
+                )
+                template_id = cur.fetchone()["id"]
+            else:
+                cur.execute(
+                    """
+                    update public.recurring_task_templates
+                    set title = %s,
+                        category = %s,
+                        area = %s,
+                        goal_id = %s,
+                        repeat_unit = %s,
+                        repeat_every = %s,
+                        weekday = %s,
+                        day_of_month = %s,
+                        start_date = %s,
+                        is_active = %s,
+                        updated_at = now()
+                    where id = %s;
+                    """,
+                    (
+                        recurrence_data.title,
+                        recurrence_data.category,
+                        recurrence_data.area,
+                        recurrence_data.goal_id,
+                        recurrence_data.repeat_unit,
+                        recurrence_data.repeat_every,
+                        recurrence_data.weekday,
+                        recurrence_data.day_of_month,
+                        recurrence_data.start_date,
+                        recurrence_data.is_active,
+                        template_id,
+                    ),
+                )
+
+            cur.execute(
+                """
+                update public.tasks
+                set title = %s,
+                    category = %s,
+                    area = %s,
+                    goal_id = %s,
+                    deadline = %s,
+                    recurring_template_id = %s,
+                    recurring_occurrence_date = %s,
+                    updated_at = now()
+                where id = %s;
+                """,
+                (
+                    recurrence_data.title,
+                    recurrence_data.category,
+                    recurrence_data.area,
+                    recurrence_data.goal_id,
+                    next_due_date,
+                    template_id,
+                    next_due_date,
+                    task_id,
+                ),
+            )
+
+        conn.commit()
+        return fetch_task_by_id(task_id)
+
+    return _run_with_reconnect(op)
+
+
 def create_task_with_recurrence(
     task_data: TaskData,
     recurrence_data: RecurringTaskTemplateData | None = None,

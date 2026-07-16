@@ -18,6 +18,7 @@ def test_get_default_categories_includes_expected_values() -> None:
     assert "Housing" in categories
     assert "Subscriptions" in categories
     assert "Food" in categories
+    assert "Discount" in categories
     assert "Car Related: Fuel" in categories
     assert "Car Related: Parking" in categories
     assert "Car Related: Annual" in categories
@@ -39,6 +40,7 @@ def test_normalize_category_trims_whitespace() -> None:
 
 def test_get_category_color_uses_named_and_stable_fallback_colors() -> None:
     assert get_category_color("Food") == "#5E9B73"
+    assert get_category_color("Discount") == "#5A9D8F"
     assert get_category_color("Subscription") == "#B07AA1"
     assert get_category_color("Car Related: Fuel") == "#B07AA1"
     assert get_category_color("Learning to Drive") == "#B07AA1"

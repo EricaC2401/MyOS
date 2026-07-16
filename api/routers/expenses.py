@@ -48,6 +48,7 @@ def _get_month_rates(expenses):
 
 LINKED_PAYMENT_METHODS = {
     "Monzo Current": ("Monzo", "Current", "GBP"),
+    "Tesco Bank Credit Card": ("Tesco Bank", "Credit Card", "GBP"),
     "HSBC HK GBP": ("HSBC HK", "GBP", "GBP"),
     "HSBC HK HKD": ("HSBC HK", "HKD", "HKD"),
     "HSBC UK Savings": ("HSBC UK", "Savings", "GBP"),
@@ -66,11 +67,11 @@ def _resolve_payment_link(payment_method, transaction):
     institution, account, currency = link
     if currency == "GBP":
         amount = Decimal(transaction.amount_gbp)
-        if amount <= 0:
+        if amount == 0:
             return None
         return link, amount
     if currency == "HKD":
-        if transaction.amount_hkd is None or Decimal(transaction.amount_hkd) <= 0:
+        if transaction.amount_hkd is None or Decimal(transaction.amount_hkd) == 0:
             return None
         return link, Decimal(transaction.amount_hkd)
     return None

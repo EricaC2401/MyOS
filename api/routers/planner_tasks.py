@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from src.planner_db import (
     fetch_tasks,
+    fetch_task_by_id,
     create_task_with_recurrence,
     update_task,
     update_task_and_generate_next,
     delete_task,
     fetch_recurring_task_template_by_id,
+    set_task_recurrence,
     update_recurring_task_template,
 )
 from src.planner_models import validate_task, validate_recurring_task_template
@@ -44,6 +48,7 @@ class TaskUpdate(BaseModel):
     area: str | None = None
     goal_id: str | None = None
     deadline: str | None = None
+    recurrence: RecurrenceConfig | None = None
     is_done: bool | None = None
     is_cancelled: bool | None = None
     completed_at: str | None = None
@@ -95,12 +100,50 @@ def create_task(body: TaskCreate):
 
 @router.put("/{task_id}")
 def edit_task(task_id: str, body: TaskUpdate):
-    fields = {k: v for k, v in body.model_dump(exclude_unset=True).items()}
-    if "is_done" in fields:
-        stored, generated = update_task_and_generate_next(task_id, fields)
+    fields = body.model_dump(exclude_unset=True)
+    recurrence_config = fields.pop("recurrence", None) if "recurrence" in fields else None
+    recurrence_supplied = "recurrence" in body.model_dump(exclude_unset=True)
+
+    if fields:
+        if "is_done" in fields:
+            stored, generated = update_task_and_generate_next(task_id, fields)
+        else:
+            stored = update_task(task_id, fields)
+            generated = None
     else:
-        stored = update_task(task_id, fields)
+        stored = fetch_task_by_id(task_id)
         generated = None
+
+    if recurrence_supplied:
+        if not stored:
+            return {"error": "Task not found"}
+        recurrence_data = None
+        if recurrence_config is not None:
+            current_template = (
+                fetch_recurring_task_template_by_id(stored.recurring_template_id)
+                if stored.recurring_template_id is not None
+                else None
+            )
+            recurring_payload = {
+                "title": stored.title,
+                "category": stored.category,
+                "area": stored.area,
+                "goal_id": stored.goal_id,
+                "repeat_unit": recurrence_config["repeat_unit"],
+                "repeat_every": recurrence_config.get("repeat_every", current_template.repeat_every if current_template else 1),
+                "weekday": recurrence_config.get("weekday"),
+                "day_of_month": recurrence_config.get("day_of_month"),
+                "start_date": (
+                    recurrence_config.get("start_date")
+                    or (current_template.start_date.isoformat() if current_template else None)
+                    or (stored.deadline.isoformat() if stored.deadline else None)
+                    or date.today().isoformat()
+                ),
+                "is_active": recurrence_config.get("is_active", True),
+            }
+            recurrence_data = validate_recurring_task_template(recurring_payload)
+        stored = set_task_recurrence(task_id, recurrence_data)
+
     if not stored:
         return {"error": "Task not found"}
     payload = serialize_task(stored)

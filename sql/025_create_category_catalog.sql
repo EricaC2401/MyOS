@@ -21,6 +21,7 @@ values
     ('C Groceries', 'Living'),
     ('Food', 'Living'),
     ('Drink', 'Living'),
+    ('Discount', 'Living'),
     ('Transport', 'Living'),
     ('Car Related: Fuel', 'Living'),
     ('Car Related: Parking', 'Living'),
