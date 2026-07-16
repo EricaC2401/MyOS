@@ -5093,13 +5093,12 @@ async function submitAppLogin() {
     if (!res.ok) {
       throw new Error(data.detail || 'Could not sign in.');
     }
-    _authReady = true;
-    hideAuthOverlay();
-    toggleAuthSettingsUi();
-    if (!_dbReady) {
-      await checkSetupStatus();
+    const authenticated = await checkAuthStatus();
+    if (!authenticated) {
+      throw new Error('Sign-in did not persist. Please try again.');
     }
-    bootAppIfReady();
+    window.location.reload();
+    return;
   } catch (error) {
     errorEl.textContent = error.message;
     errorEl.style.display = 'block';
