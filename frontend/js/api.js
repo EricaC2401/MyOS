@@ -28,6 +28,9 @@ async function apiFetch(path, options = {}) {
     ...options,
   });
   if (!res.ok) {
+    if (res.status === 401 && typeof window.handleAuthenticationRequired === 'function') {
+      window.handleAuthenticationRequired();
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(formatApiErrorDetail(err.detail, res.status));
   }

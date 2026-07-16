@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from src.auth import browser_setup_allowed
 from src.db import DatabaseConnectionError, _clear_connection_cache, test_connection
 
 router = APIRouter(tags=["setup"])
@@ -28,17 +29,24 @@ class CredentialsPayload(BaseModel):
 @router.get("/setup/status")
 def setup_status():
     configured = bool(os.environ.get("SUPABASE_HOST"))
+    allow_browser_setup = browser_setup_allowed()
     if not configured:
-        return {"configured": False}
+        return {"configured": False, "allow_browser_setup": allow_browser_setup}
     try:
         test_connection()
-        return {"configured": True, "connected": True}
+        return {"configured": True, "connected": True, "allow_browser_setup": allow_browser_setup}
     except DatabaseConnectionError:
-        return {"configured": True, "connected": False}
+        return {"configured": True, "connected": False, "allow_browser_setup": allow_browser_setup}
 
 
 @router.post("/setup/credentials")
 def save_credentials(payload: CredentialsPayload):
+    if not browser_setup_allowed():
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Browser-based database setup is disabled for this environment."},
+        )
+
     os.environ["SUPABASE_HOST"] = payload.host
     os.environ["SUPABASE_PORT"] = str(payload.port)
     os.environ["SUPABASE_DBNAME"] = payload.dbname

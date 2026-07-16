@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: myos
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_HOST
+        sync: false
+      - key: SUPABASE_PORT
+        value: "5432"
+      - key: SUPABASE_DBNAME
+        value: postgres
+      - key: SUPABASE_USER
+        sync: false
+      - key: SUPABASE_PASSWORD
+        sync: false
+      - key: SUPABASE_SSLMODE
+        value: require
+      - key: APP_PASSWORD_HASH
+        sync: false
+      - key: APP_SESSION_SECRET
+        sync: false
+      - key: AUTH_COOKIE_SECURE
+        value: "true"

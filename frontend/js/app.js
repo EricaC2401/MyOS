@@ -2680,9 +2680,21 @@ const LAST_AREA_STORAGE_KEY = 'myos_last_area';
 const LAST_FINANCE_PAGE_STORAGE_KEY = 'myos_last_finance_page';
 const RECURRING_SYNC_DATE_STORAGE_KEY = 'myos_recurring_sync_date';
 
+function toggleMobileSidebar(forceOpen = null) {
+  const shouldOpen = forceOpen === null
+    ? !document.body.classList.contains('mobile-nav-open')
+    : !!forceOpen;
+  document.body.classList.toggle('mobile-nav-open', shouldOpen);
+}
+
+function closeMobileSidebar() {
+  document.body.classList.remove('mobile-nav-open');
+}
+
 function navArea(area, el) {
   const previousArea = currentArea;
   currentArea = area;
+  closeMobileSidebar();
   try { sessionStorage.setItem(LAST_AREA_STORAGE_KEY, area); } catch (error) {}
 
   // Switch sidebar mode
@@ -2744,6 +2756,7 @@ function navArea(area, el) {
 }
 
 function navFinanceSub(id, el, forceLoad = false) {
+  closeMobileSidebar();
   const enteringFinance = forceLoad || currentArea !== 'finance';
   if (currentArea !== 'finance') {
     navArea('finance');
@@ -4933,22 +4946,183 @@ function renderMonthlyOverviewDoughnut(canvasId, totalId, wrapId, rows, type, me
 }
 
 let _dbReady = false;
+let _authEnabled = false;
+let _authReady = true;
+let _bootstrapped = false;
+let _allowBrowserSetup = true;
+
+function toggleAuthSettingsUi() {
+  const logoutBtn = document.getElementById('settings-logout-btn');
+  const noteEl = document.getElementById('settings-auth-note');
+  if (!logoutBtn || !noteEl) return;
+  logoutBtn.style.display = _authEnabled ? 'inline-flex' : 'none';
+  noteEl.textContent = _authEnabled
+    ? 'This device stays signed in until you log out or clear browser data.'
+    : 'App login is not enabled in this environment.';
+}
+
+function showAuthOverlay(message = '') {
+  const overlay = document.getElementById('auth-overlay');
+  const input = document.getElementById('auth-password');
+  const errorEl = document.getElementById('auth-error');
+  if (!overlay) return;
+  overlay.style.display = _authEnabled ? 'flex' : 'none';
+  if (errorEl) {
+    errorEl.style.display = message ? 'block' : 'none';
+    errorEl.textContent = message;
+  }
+  if (input) {
+    input.value = '';
+    setTimeout(() => input.focus(), 0);
+  }
+}
+
+function hideAuthOverlay() {
+  const overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function configureSetupOverlay({ configured, allow_browser_setup: allowBrowserSetup }) {
+  _allowBrowserSetup = allowBrowserSetup !== false;
+  const overlay = document.getElementById('setup-overlay');
+  const titleEl = document.getElementById('setup-title-text');
+  const subtextEl = document.getElementById('setup-subtext');
+  const staticNote = document.getElementById('setup-static-note');
+  const saveBtn = document.getElementById('setup-save-btn');
+  const urlInput = document.getElementById('setup-url');
+  const passwordInput = document.getElementById('setup-password');
+  if (!overlay || !titleEl || !subtextEl || !staticNote || !saveBtn || !urlInput || !passwordInput) return;
+
+  if (configured) {
+    overlay.style.display = 'none';
+    return;
+  }
+
+  overlay.style.display = 'flex';
+  if (_allowBrowserSetup) {
+    titleEl.textContent = 'Connect to Supabase';
+    subtextEl.innerHTML = 'Enter your Supabase project credentials to get started.<br>Find them in your Supabase dashboard under <strong>Settings &rarr; Database</strong>.';
+    staticNote.style.display = 'none';
+    urlInput.parentElement.style.display = '';
+    passwordInput.parentElement.style.display = '';
+    saveBtn.style.display = 'inline-flex';
+    saveBtn.disabled = false;
+  } else {
+    titleEl.textContent = 'Database setup required';
+    subtextEl.textContent = 'This deployment expects database credentials to be configured on the server before the app can start.';
+    staticNote.textContent = 'Add the SUPABASE_* environment variables on your host, then redeploy or restart the service.';
+    staticNote.style.display = 'block';
+    urlInput.parentElement.style.display = 'none';
+    passwordInput.parentElement.style.display = 'none';
+    saveBtn.style.display = 'none';
+  }
+}
+
+async function checkAuthStatus() {
+  try {
+    const res = await fetch('/api/auth/status');
+    const data = await res.json();
+    _authEnabled = !!data.enabled;
+    _authReady = !_authEnabled || !!data.authenticated;
+    toggleAuthSettingsUi();
+    if (_authEnabled && !_authReady) {
+      showAuthOverlay();
+      return false;
+    }
+    hideAuthOverlay();
+    return true;
+  } catch (_) {
+    _authEnabled = false;
+    _authReady = true;
+    toggleAuthSettingsUi();
+    hideAuthOverlay();
+    return true;
+  }
+}
 
 async function checkSetupStatus() {
   try {
     const res = await fetch('/api/setup/status');
     const data = await res.json();
+    configureSetupOverlay(data);
     if (!data.configured) {
-      document.getElementById('setup-overlay').style.display = 'flex';
       _dbReady = false;
       return false;
     }
-  } catch (_) {}
+  } catch (_) {
+    _dbReady = false;
+    return false;
+  }
   _dbReady = true;
   return true;
 }
 
+function bootAppIfReady() {
+  if (_bootstrapped || !_dbReady || !_authReady) return;
+  _bootstrapped = true;
+  let initialArea = 'home';
+  try {
+    const storedArea = sessionStorage.getItem(LAST_AREA_STORAGE_KEY);
+    if (storedArea && ['home', 'finance', 'planner', 'data', 'settings'].includes(storedArea)) {
+      initialArea = storedArea;
+    }
+  } catch (error) {}
+  navArea(initialArea, initialArea === 'home' ? document.querySelector('#sb-mode-home .nav:first-of-type') : null);
+}
+
+async function submitAppLogin() {
+  const btn = document.getElementById('auth-login-btn');
+  const errorEl = document.getElementById('auth-error');
+  const input = document.getElementById('auth-password');
+  if (!btn || !input || !_authEnabled) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Signing in...';
+  errorEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: input.value }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || 'Could not sign in.');
+    }
+    _authReady = true;
+    hideAuthOverlay();
+    toggleAuthSettingsUi();
+    if (!_dbReady) {
+      await checkSetupStatus();
+    }
+    bootAppIfReady();
+  } catch (error) {
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-login-2"></i> Continue';
+  }
+}
+
+async function logoutApp() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch (_) {}
+  _authReady = !_authEnabled;
+  _bootstrapped = false;
+  if (_authEnabled) showAuthOverlay();
+}
+
+function handleAuthenticationRequired() {
+  _authReady = false;
+  _bootstrapped = false;
+  showAuthOverlay('Please sign in to continue.');
+}
+
+window.handleAuthenticationRequired = handleAuthenticationRequired;
+
 async function submitSetupCredentials() {
+  if (!_allowBrowserSetup) return;
   const btn = document.getElementById('setup-save-btn');
   const errEl = document.getElementById('setup-error');
   btn.disabled = true;
@@ -5009,7 +5183,7 @@ async function submitSetupCredentials() {
     clearTaxForm();
     clearFinanceForm();
     syncPeriodSelector();
-    loadPageData('dashboard');
+    bootAppIfReady();
   } catch (e) {
     errEl.textContent = 'Network error: ' + e.message;
     errEl.style.display = 'block';
@@ -5019,6 +5193,7 @@ async function submitSetupCredentials() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  await checkAuthStatus();
   const dbReady = await checkSetupStatus();
 
   document.getElementById('period-selector').addEventListener('change', event => {
@@ -5231,19 +5406,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadMonthlyOverview();
   });
 
+  document.getElementById('auth-password')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') submitAppLogin();
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 760) closeMobileSidebar();
+  });
+
   clearExpenseForm();
   clearIncomeForm();
   clearTaxForm();
   clearFinanceForm();
   syncPeriodSelector();
-  if (dbReady) {
-    let initialArea = 'home';
-    try {
-      const storedArea = sessionStorage.getItem(LAST_AREA_STORAGE_KEY);
-      if (storedArea && ['home', 'finance', 'planner', 'data', 'settings'].includes(storedArea)) {
-        initialArea = storedArea;
-      }
-    } catch (error) {}
-    navArea(initialArea, initialArea === 'home' ? document.querySelector('#sb-mode-home .nav:first-of-type') : null);
-  }
+  if (dbReady) bootAppIfReady();
 });

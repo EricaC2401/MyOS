@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MyOS</title>
+<meta name="theme-color" content="#151929">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="MyOS">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
 <link rel="stylesheet" href="/css/app.css?v=20260708-05">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -84,6 +91,9 @@
 <div class="main">
   <div class="topbar">
       <div class="topbar-left">
+        <button class="menu-btn" type="button" onclick="toggleMobileSidebar()" aria-label="Open navigation">
+          <i class="ti ti-menu-2"></i>
+        </button>
         <span class="page-title" id="page-title">Dashboard</span>
         <div class="period-pills" id="period-pills">
           <div class="pill active" onclick="setPeriod(this,'Month')">Month</div>
@@ -810,6 +820,9 @@
     <div class="area" id="area-planner">
       <div id="planner-topbar">
         <div class="topbar-left">
+          <button class="menu-btn" type="button" onclick="toggleMobileSidebar()" aria-label="Open navigation">
+            <i class="ti ti-menu-2"></i>
+          </button>
           <span class="page-title" id="planner-page-title">Daily Schedule</span>
           <div class="tab-bar" id="tab-bar-tasks" style="display:none">
             <button class="tab" onclick="switchTab('goals',this)">Goals</button>
@@ -1316,6 +1329,16 @@
           <button class="btn-secondary" onclick="addIncomeSourceConfig()"><i class="ti ti-plus"></i>Add source</button>
         </div>
       </div>
+      <div class="card" id="settings-auth-card">
+        <div class="card-title"><i class="ti ti-lock"></i>App access</div>
+        <div style="font-size:12px;color:#8492a6;margin-bottom:14px">
+          Stay signed in on this device until you log out or clear browser data.
+        </div>
+        <div class="settings-auth-actions">
+          <button class="btn-secondary" id="settings-logout-btn" onclick="logoutApp()" style="display:none"><i class="ti ti-logout"></i>Log out</button>
+          <div class="settings-auth-note" id="settings-auth-note">App login is not enabled in this environment.</div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /content -->
@@ -1348,11 +1371,27 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="setup-screen" id="auth-overlay" style="display:none">
+  <div class="setup-card auth-card">
+    <h2><i class="ti ti-lock-password" style="font-size:20px;color:#5B6C9E"></i> Sign in to MyOS</h2>
+    <div class="setup-sub">Enter your app password to continue on this device.</div>
+    <div class="form-group" style="margin-bottom:0">
+      <label>App password</label>
+      <input id="auth-password" type="password" placeholder="Enter your password" autocomplete="current-password">
+      <div class="setup-hint">You will stay signed in until you log out or clear browser data.</div>
+    </div>
+    <div class="setup-error" id="auth-error"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:18px">
+      <button class="btn-primary" id="auth-login-btn" onclick="submitAppLogin()"><i class="ti ti-login-2"></i> Continue</button>
+    </div>
+  </div>
+</div>
+
 <!-- Setup credentials screen -->
 <div class="setup-screen" id="setup-overlay" style="display:none">
   <div class="setup-card">
-    <h2><i class="ti ti-receipt-2" style="font-size:20px;color:#5B6C9E"></i> Connect to Supabase</h2>
-    <div class="setup-sub">Enter your Supabase project credentials to get started.<br>Find them in your Supabase dashboard under <strong>Settings &rarr; Database</strong>.</div>
+    <h2><i class="ti ti-receipt-2" style="font-size:20px;color:#5B6C9E"></i> <span id="setup-title-text">Connect to Supabase</span></h2>
+    <div class="setup-sub" id="setup-subtext">Enter your Supabase project credentials to get started.<br>Find them in your Supabase dashboard under <strong>Settings &rarr; Database</strong>.</div>
     <div class="form-group" style="margin-bottom:14px">
       <label>Project URL</label>
       <input id="setup-url" type="url" placeholder="https://your-project.supabase.co" autocomplete="off">
@@ -1364,6 +1403,7 @@
       <div class="setup-hint">The password you set when creating the Supabase project</div>
     </div>
     <div class="setup-error" id="setup-error"></div>
+    <div class="setup-hint" id="setup-static-note" style="display:none;margin-top:14px"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:18px">
       <button class="btn-primary" id="setup-save-btn" onclick="submitSetupCredentials()"><i class="ti ti-plug-connected"></i> Connect</button>
     </div>
