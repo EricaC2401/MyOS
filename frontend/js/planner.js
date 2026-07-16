@@ -2751,8 +2751,6 @@ async function insertTodoIntoSchedule(taskId, titleSnapshot){
   await insertScheduleTextOrAddRow(titleSnapshot);
 }
 
-loadScheduleQuickActivities();
-
 // ─── Topbar / Modal ────────────────────────────────
 
 function updateTopbarForSection(){
