@@ -9,6 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +28,27 @@ from src.auth import (
     get_session_secret,
     is_auth_enabled,
 )
+
+
+class RequireAuthenticationMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if not is_auth_enabled():
+            return await call_next(request)
+        if not path.startswith("/api"):
+            return await call_next(request)
+        if path in {
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/status",
+            "/api/setup/status",
+        }:
+            return await call_next(request)
+        if path == "/api/setup/credentials" and browser_setup_allowed():
+            return await call_next(request)
+        if request.session.get(AUTH_SESSION_KEY):
+            return await call_next(request)
+        return JSONResponse(status_code=401, content={"detail": "Authentication required."})
 
 
 @asynccontextmanager
@@ -72,6 +94,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="MyOS", lifespan=lifespan)
 
+    app.add_middleware(RequireAuthenticationMiddleware)
     app.add_middleware(
         SessionMiddleware,
         secret_key=get_session_secret(),
@@ -85,27 +108,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.middleware("http")
-    async def require_authentication(request: Request, call_next):
-        path = request.url.path
-        if not is_auth_enabled():
-            return await call_next(request)
-        if not path.startswith("/api"):
-            return await call_next(request)
-        if path in {
-            "/api/auth/login",
-            "/api/auth/logout",
-            "/api/auth/status",
-            "/api/setup/status",
-        }:
-            return await call_next(request)
-        if path == "/api/setup/credentials" and browser_setup_allowed():
-            return await call_next(request)
-        if request.scope.get("session", {}).get(AUTH_SESSION_KEY):
-            return await call_next(request)
-        return JSONResponse(status_code=401, content={"detail": "Authentication required."})
-
 
     @app.exception_handler(ValidationError)
     async def validation_error_handler(request, exc):

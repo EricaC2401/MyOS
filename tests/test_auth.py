@@ -52,6 +52,10 @@ def test_login_logout_flow(monkeypatch) -> None:
     assert status.status_code == 200
     assert status.json()["authenticated"] is True
 
+    protected = client.get("/api/health")
+    assert protected.status_code == 200
+    assert protected.json()["status"] == "ok"
+
     logout = client.post("/api/auth/logout")
     assert logout.status_code == 200
 
