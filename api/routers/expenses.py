@@ -13,6 +13,7 @@ from src.db import (
     delete_transaction_with_finance_link,
     fetch_transaction_by_id,
     fetch_transactions,
+    fetch_finance_snapshot_history,
     insert_transaction,
     insert_transaction_with_finance_link,
     update_transaction,
@@ -22,6 +23,7 @@ from src.db import (
 )
 from src.models import validate_expense_transaction, ValidationError
 from src.finance_dashboard_cache import invalidate_finance_dashboard_cache
+from src.report_cache import invalidate_report_source_cache
 from src.reports import build_expense_transaction_total_gbp
 from src.db import fetch_hmrc_monthly_exchange_rates, upsert_hmrc_monthly_exchange_rates
 from src.import_csv import fetch_hmrc_monthly_rates
@@ -52,16 +54,58 @@ LINKED_PAYMENT_METHODS = {
     "HSBC HK GBP": ("HSBC HK", "GBP", "GBP"),
     "HSBC HK HKD": ("HSBC HK", "HKD", "HKD"),
     "HSBC UK Savings": ("HSBC UK", "Savings", "GBP"),
+    "Wallet GBP": ("Wallet", "Cash", "GBP"),
+    "Wallet HKD": ("Wallet", "Cash", "HKD"),
     "TopCashback": ("TopCashback", "Cashback", "GBP"),
     "Hangseng HKD Savings": ("Hangseng", "HKD Savings", "HKD"),
     "Hangseng I-HKD Saving": ("Hangseng", "I-HKD Saving", "HKD"),
 }
 
+PAYMENT_METHOD_ALIASES = {
+    "wallet cash gbp": ("Wallet", "Cash", "GBP"),
+    "wallet cash hkd": ("Wallet", "Cash", "HKD"),
+}
 
-def _resolve_payment_link(payment_method, transaction):
+
+def _resolve_wallet_alias_from_text(value: str):
+    lowered = value.casefold()
+    compact = "".join(ch if ch.isalnum() else " " for ch in lowered)
+    tokens = {token for token in compact.split() if token}
+    if "wallet" not in tokens or "cash" not in tokens:
+        return None
+    if "gbp" in tokens:
+        return ("Wallet", "Cash", "GBP")
+    if "hkd" in tokens:
+        return ("Wallet", "Cash", "HKD")
+    return None
+
+
+def _resolve_payment_method_account(payment_method: str | None):
     if not payment_method or payment_method.strip() == "":
         return None
-    link = LINKED_PAYMENT_METHODS.get(payment_method.strip())
+
+    normalized = payment_method.strip()
+    if normalized in LINKED_PAYMENT_METHODS:
+        return LINKED_PAYMENT_METHODS[normalized]
+
+    alias = PAYMENT_METHOD_ALIASES.get(normalized.casefold())
+    if alias is not None:
+        return alias
+
+    alias = _resolve_wallet_alias_from_text(normalized)
+    if alias is not None:
+        return alias
+
+    if " / " in normalized:
+        parts = normalized.split(" / ")
+        if len(parts) == 3:
+            return parts[0], parts[1], parts[2]
+
+    return None
+
+
+def _resolve_payment_link(payment_method, transaction):
+    link = _resolve_payment_method_account(payment_method)
     if link is None:
         return None
     institution, account, currency = link
@@ -75,6 +119,25 @@ def _resolve_payment_link(payment_method, transaction):
             return None
         return link, Decimal(transaction.amount_hkd)
     return None
+
+
+def _has_matching_finance_adjustment(link_with_amount, transaction) -> bool:
+    if link_with_amount is None:
+        return False
+
+    link, amount = link_with_amount
+    history = fetch_finance_snapshot_history()
+    for entry in history:
+        if entry.institution != link[0] or entry.account != link[1] or entry.currency != link[2]:
+            continue
+        if entry.related_record_type != "Expense":
+            continue
+        if (entry.related_record_item or "").strip() != transaction.description:
+            continue
+        if entry.related_record_amount != amount:
+            continue
+        return True
+    return False
 
 
 class ExpenseCreate(BaseModel):
@@ -182,6 +245,7 @@ def create_expense(body: ExpenseCreate):
             deduction_amount=amount,
         )
     invalidate_finance_dashboard_cache()
+    invalidate_report_source_cache()
     return serialize_expense(stored)
 
 
@@ -196,6 +260,8 @@ def update_expense_endpoint(expense_id: int, body: ExpenseUpdate):
     transaction = validate_expense_transaction(payload)
 
     reverse = _resolve_payment_link(original.payment_method, original)
+    if reverse is not None and not _has_matching_finance_adjustment(reverse, original):
+        reverse = None
     apply = _resolve_payment_link(body.payment_method, transaction)
 
     if reverse is None and apply is None:
@@ -218,6 +284,7 @@ def update_expense_endpoint(expense_id: int, body: ExpenseUpdate):
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Expense #{expense_id} could not be updated"})
     invalidate_finance_dashboard_cache()
+    invalidate_report_source_cache()
     return serialize_expense(updated)
 
 
@@ -229,6 +296,8 @@ def delete_expense_endpoint(expense_id: int):
         return JSONResponse(status_code=404, content={"detail": f"Expense #{expense_id} not found"})
 
     restore = _resolve_payment_link(original.payment_method, original)
+    if restore is not None and not _has_matching_finance_adjustment(restore, original):
+        restore = None
     if restore is None:
         deleted = delete_transaction(expense_id)
     else:
@@ -245,4 +314,5 @@ def delete_expense_endpoint(expense_id: int):
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Expense #{expense_id} could not be deleted"})
     invalidate_finance_dashboard_cache()
+    invalidate_report_source_cache()
     return {"deleted": True, "id": expense_id}

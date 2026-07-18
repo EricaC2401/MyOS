@@ -209,10 +209,30 @@ LINKED_PAYMENT_METHODS = {
     "HSBC HK GBP": ("HSBC HK", "GBP", "GBP"),
     "HSBC HK HKD": ("HSBC HK", "HKD", "HKD"),
     "HSBC UK Savings": ("HSBC UK", "Savings", "GBP"),
+    "Wallet GBP": ("Wallet", "Cash", "GBP"),
+    "Wallet HKD": ("Wallet", "Cash", "HKD"),
     "TopCashback": ("TopCashback", "Cashback", "GBP"),
     "Hangseng HKD Savings": ("Hangseng", "HKD Savings", "HKD"),
     "Hangseng I-HKD Saving": ("Hangseng", "I-HKD Saving", "HKD"),
 }
+
+PAYMENT_METHOD_ALIASES = {
+    "wallet cash gbp": ("Wallet", "Cash", "GBP"),
+    "wallet cash hkd": ("Wallet", "Cash", "HKD"),
+}
+
+
+def _resolve_wallet_alias_from_text(value: str) -> tuple[str, str, str] | None:
+    lowered = value.casefold()
+    compact = "".join(ch if ch.isalnum() else " " for ch in lowered)
+    tokens = {token for token in compact.split() if token}
+    if "wallet" not in tokens or "cash" not in tokens:
+        return None
+    if "gbp" in tokens:
+        return ("Wallet", "Cash", "GBP")
+    if "hkd" in tokens:
+        return ("Wallet", "Cash", "HKD")
+    return None
 
 
 def _get_month_anchor(value: date) -> date:
@@ -231,6 +251,12 @@ def _resolve_income_account_link(payment_account: str | None) -> tuple[str, str,
         return None
     if normalized in LINKED_PAYMENT_METHODS:
         return LINKED_PAYMENT_METHODS[normalized]
+    alias = PAYMENT_METHOD_ALIASES.get(normalized.casefold())
+    if alias is not None:
+        return alias
+    alias = _resolve_wallet_alias_from_text(normalized)
+    if alias is not None:
+        return alias
     if " / " in normalized:
         parts = normalized.split(" / ")
         if len(parts) == 3:
@@ -253,6 +279,14 @@ def _resolve_finance_link_for_amounts(
         return None
 
     link = LINKED_PAYMENT_METHODS.get(normalized)
+    if link is None:
+        link = PAYMENT_METHOD_ALIASES.get(normalized.casefold())
+    if link is None:
+        link = _resolve_wallet_alias_from_text(normalized)
+    if link is None and " / " in normalized:
+        parts = normalized.split(" / ")
+        if len(parts) == 3:
+            link = (parts[0], parts[1], parts[2])
     if link is None:
         return None
 

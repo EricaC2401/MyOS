@@ -1029,6 +1029,10 @@ async function initShell(){
   syncCurrentDateIndicators();
   syncScheduleDateIfNeeded(true);
   refreshPlannerSelectOptions();
+  renderScheduleQuickActivities();
+  if(currentSection === 'schedule'){
+    renderSched(getSelectedDate());
+  }
 }
 
 function refreshPlannerSelectOptions(){

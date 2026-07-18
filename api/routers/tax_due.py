@@ -15,6 +15,7 @@ from src.db import (
     update_income_tax_due_entry,
 )
 from src.models import validate_tax_due_entry
+from src.report_cache import invalidate_report_source_cache
 from api.serializers import _dec
 
 router = APIRouter(prefix="/tax-due", tags=["tax-due"])
@@ -87,6 +88,7 @@ def get_tax_due_metadata():
 def create_tax_due(body: TaxDueCreate):
     entry = validate_tax_due_entry(body.model_dump())
     stored = insert_income_tax_due_entry(entry)
+    invalidate_report_source_cache()
     return _serialize_tax_due(stored)
 
 
@@ -97,6 +99,7 @@ def update_tax_due_endpoint(entry_id: int, body: TaxDueUpdate):
     if updated is None:
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Tax due #{entry_id} not found"})
+    invalidate_report_source_cache()
     return _serialize_tax_due(updated)
 
 
@@ -106,4 +109,5 @@ def delete_tax_due_endpoint(entry_id: int):
     if not deleted:
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Tax due #{entry_id} could not be deleted"})
+    invalidate_report_source_cache()
     return {"deleted": True, "id": entry_id}

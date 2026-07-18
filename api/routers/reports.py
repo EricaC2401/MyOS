@@ -6,7 +6,6 @@ import calendar
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
-import time
 
 from fastapi import APIRouter, Query
 
@@ -27,6 +26,11 @@ from src.import_csv import fetch_hmrc_monthly_rates
 from src.finance_dashboard_cache import (
     get_finance_dashboard_cache,
     set_finance_dashboard_cache,
+)
+from src.report_cache import (
+    get_report_classification_cache_ttl_seconds,
+    get_report_source_cache_ttl_seconds,
+    get_ttl_cached_value,
 )
 from src.finance_fx import DEFAULT_FX_RATES_TO_HKD, load_fx_rates_to_hkd
 from src.reports import (
@@ -65,28 +69,14 @@ from api.serializers import _dec
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
-_REPORT_SOURCE_CACHE_TTL_SECONDS = 300.0
-_REPORT_CLASSIFICATION_CACHE_TTL_SECONDS = 300.0
-_report_source_cache: dict[str, tuple[float, object]] = {}
-
-
 def _get_ttl_cached_value(cache_key: str, ttl_seconds: float, loader):
-    cached = _report_source_cache.get(cache_key)
-    now = time.monotonic()
-    if cached is not None:
-        cached_at, cached_value = cached
-        if now - cached_at <= ttl_seconds:
-            return cached_value
-
-    loaded_value = loader()
-    _report_source_cache[cache_key] = (now, loaded_value)
-    return loaded_value
+    return get_ttl_cached_value(cache_key, ttl_seconds, loader)
 
 
 def _get_report_transactions():
     return _get_ttl_cached_value(
         "transactions",
-        _REPORT_SOURCE_CACHE_TTL_SECONDS,
+        get_report_source_cache_ttl_seconds(),
         fetch_transactions,
     )
 
@@ -94,7 +84,7 @@ def _get_report_transactions():
 def _get_report_income_transactions():
     return _get_ttl_cached_value(
         "income_transactions",
-        _REPORT_SOURCE_CACHE_TTL_SECONDS,
+        get_report_source_cache_ttl_seconds(),
         fetch_income_transactions,
     )
 
@@ -102,7 +92,7 @@ def _get_report_income_transactions():
 def _get_report_tax_due_entries():
     return _get_ttl_cached_value(
         "tax_due_entries",
-        _REPORT_SOURCE_CACHE_TTL_SECONDS,
+        get_report_source_cache_ttl_seconds(),
         fetch_income_tax_due_entries,
     )
 
@@ -110,7 +100,7 @@ def _get_report_tax_due_entries():
 def _get_report_classification_groups():
     return _get_ttl_cached_value(
         "classification_groups",
-        _REPORT_CLASSIFICATION_CACHE_TTL_SECONDS,
+        get_report_classification_cache_ttl_seconds(),
         fetch_classification_groups,
     )
 
@@ -118,7 +108,7 @@ def _get_report_classification_groups():
 def _get_report_classification_mappings():
     return _get_ttl_cached_value(
         "classification_mappings",
-        _REPORT_CLASSIFICATION_CACHE_TTL_SECONDS,
+        get_report_classification_cache_ttl_seconds(),
         fetch_classification_mappings,
     )
 

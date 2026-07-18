@@ -241,7 +241,7 @@
           <div class="form-group"><label>Group</label><select id="exp-group"></select></div>
           <div class="form-group"><label>Amount (GBP)</label><input type="number" placeholder="0.00" step="0.01" id="exp-gbp"><div class="field-hint">Use a negative amount for discounts or refunds.</div></div>
           <div class="form-group"><label>Amount (HKD) — optional</label><input type="number" placeholder="0.00" step="0.01" id="exp-hkd"></div>
-          <div class="form-group"><label>Payment method</label><select id="exp-payment"><option value="">— No linked account</option><option selected>Monzo Current</option><option>Tesco Bank Credit Card</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option><option>HSBC UK Savings</option><option>Hangseng HKD Savings</option><option>Hangseng I-HKD Saving</option></select></div>
+          <div class="form-group"><label>Payment method</label><select id="exp-payment"><option value="">— No linked account</option><option selected>Monzo Current</option><option>Tesco Bank Credit Card</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option><option>HSBC UK Savings</option><option>Wallet GBP</option><option>Wallet HKD</option><option>Hangseng HKD Savings</option><option>Hangseng I-HKD Saving</option></select></div>
           <div class="form-group"><label>Notes</label><input type="text" placeholder="Optional note" id="exp-notes"></div>
         </div>
         <div class="checkbox-row"><input type="checkbox" id="exp-tax"><span>Tax deductible</span></div>
@@ -303,7 +303,7 @@
           <div class="form-group"><label>Amount</label><input type="number" placeholder="0.00" step="0.01" id="inc-amount"></div>
           <div class="form-group"><label>Amount (GBP) — optional</label><input type="number" placeholder="0.00" step="0.01" id="inc-gbp"></div>
           <div class="form-group"><label>FX rate to GBP — optional</label><input type="number" placeholder="0.0000" step="0.0001" id="inc-fx"></div>
-          <div class="form-group"><label>Payment account</label><select id="inc-account"><option value="">— No linked account</option><option>Monzo Current</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option></select></div>
+          <div class="form-group"><label>Payment account</label><select id="inc-account"><option value="">— No linked account</option><option>Monzo / Current / GBP</option><option>HSBC HK / GBP / GBP</option><option>HSBC HK / HKD / HKD</option><option>Wallet / Cash / GBP</option><option>Wallet / Cash / HKD</option></select></div>
         </div>
         <div class="checkbox-row"><input type="checkbox" checked id="inc-taxable"><span>Taxable income</span></div>
         <div class="form-actions" style="margin-top:10px"><button class="btn-primary" onclick="saveIncome()"><i class="ti ti-check"></i>Save income</button><button class="btn-secondary" onclick="clearIncomeForm()">Clear</button></div>
@@ -625,7 +625,7 @@
               <div class="form-group"><label>Currency</label><select id="rec-inc-currency"><option>GBP</option><option>HKD</option><option>USD</option><option>EUR</option></select></div>
               <div class="form-group"><label>Amount</label><input type="number" placeholder="0.00" step="0.01" id="rec-inc-amount"></div>
               <div class="form-group"><label>Day of month</label><input type="number" placeholder="1" min="1" max="31" id="rec-inc-day"></div>
-              <div class="form-group"><label>Payment account</label><select id="rec-inc-account"><option value="">— No linked account</option><option>Monzo Current</option><option>HSBC HK GBP</option><option>HSBC HK HKD</option></select></div>
+              <div class="form-group"><label>Payment account</label><select id="rec-inc-account"><option value="">— No linked account</option><option>Monzo / Current / GBP</option><option>HSBC HK / GBP / GBP</option><option>HSBC HK / HKD / HKD</option><option>Wallet / Cash / GBP</option><option>Wallet / Cash / HKD</option></select></div>
               <div class="form-group"><label>Start date</label><input type="date" id="rec-inc-start"></div>
               <div class="form-group"><label>End date — optional</label><input type="date" id="rec-inc-end"></div>
             </div>

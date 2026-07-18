@@ -21,6 +21,7 @@ from src.db import (
 )
 from src.models import validate_income_transaction, ValidationError
 from src.finance_dashboard_cache import invalidate_finance_dashboard_cache
+from src.report_cache import invalidate_report_source_cache
 from api.serializers import serialize_income
 
 router = APIRouter(prefix="/income", tags=["income"])
@@ -132,6 +133,7 @@ def create_income(body: IncomeCreate):
             addition_amount=amount,
         )
     invalidate_finance_dashboard_cache()
+    invalidate_report_source_cache()
     return serialize_income(stored)
 
 
@@ -169,6 +171,7 @@ def update_income_endpoint(income_id: int, body: IncomeUpdate):
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Income #{income_id} could not be updated"})
     invalidate_finance_dashboard_cache()
+    invalidate_report_source_cache()
     return serialize_income(updated)
 
 
@@ -197,4 +200,5 @@ def delete_income_endpoint(income_id: int):
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=404, content={"detail": f"Income #{income_id} could not be deleted"})
     invalidate_finance_dashboard_cache()
+    invalidate_report_source_cache()
     return {"deleted": True, "id": income_id}

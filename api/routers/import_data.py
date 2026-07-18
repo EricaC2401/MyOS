@@ -20,6 +20,7 @@ from src.import_csv import (
     build_import_preview_rows,
     build_income_import_preview_rows,
 )
+from src.report_cache import invalidate_report_source_cache
 from api.serializers import serialize_expense, serialize_income
 
 router = APIRouter(prefix="/import", tags=["import"])
@@ -65,6 +66,8 @@ async def confirm_expense_import(file: UploadFile = File(...)):
     for transaction in summary.unique_transactions:
         insert_transaction(transaction)
         count += 1
+    if count:
+        invalidate_report_source_cache()
     return {"imported": count}
 
 
@@ -116,4 +119,6 @@ async def confirm_income_import(file: UploadFile = File(...)):
     for prepared in summary.unique_incomes:
         insert_income_transaction(prepared.income)
         count += 1
+    if count:
+        invalidate_report_source_cache()
     return {"imported": count}

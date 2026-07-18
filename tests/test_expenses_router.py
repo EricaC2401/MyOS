@@ -52,6 +52,7 @@ def test_create_expense_applies_finance_credit_for_negative_amount(monkeypatch) 
 
     monkeypatch.setattr(expenses, "insert_transaction_with_finance_link", fake_insert_with_finance_link)
     monkeypatch.setattr(expenses, "invalidate_finance_dashboard_cache", lambda: captured.setdefault("invalidated", True))
+    monkeypatch.setattr(expenses, "invalidate_report_source_cache", lambda: captured.setdefault("report_invalidated", True))
 
     payload = expenses.create_expense(
         expenses.ExpenseCreate(
@@ -66,6 +67,7 @@ def test_create_expense_applies_finance_credit_for_negative_amount(monkeypatch) 
 
     assert "insert" not in captured
     assert captured["linked"]["deduction_amount"] == Decimal("-8.00")
+    assert captured["report_invalidated"] is True
     assert payload["amount_gbp"] == "-8.00"
     assert payload["category"] == "Discount"
 
@@ -77,6 +79,20 @@ def test_update_expense_applies_finance_credit_for_negative_amount(monkeypatch) 
     updated = make_stored_transaction(amount_gbp="-8.00")
 
     monkeypatch.setattr(expenses, "fetch_transaction_by_id", lambda expense_id: original)
+    monkeypatch.setattr(
+        expenses,
+        "fetch_finance_snapshot_history",
+        lambda: [
+            SimpleNamespace(
+                institution="Monzo",
+                account="Current",
+                currency="GBP",
+                related_record_type="Expense",
+                related_record_item="Promotional credit",
+                related_record_amount=Decimal("12.00"),
+            )
+        ],
+    )
     monkeypatch.setattr(expenses, "validate_expense_transaction", lambda payload: transaction)
     monkeypatch.setattr(expenses, "update_transaction", lambda expense_id, tx: captured.setdefault("updated", (expense_id, tx)) or updated)
     def fake_update_with_finance_link(*args, **kwargs):
@@ -85,6 +101,7 @@ def test_update_expense_applies_finance_credit_for_negative_amount(monkeypatch) 
 
     monkeypatch.setattr(expenses, "update_transaction_with_finance_link", fake_update_with_finance_link)
     monkeypatch.setattr(expenses, "invalidate_finance_dashboard_cache", lambda: captured.setdefault("invalidated", True))
+    monkeypatch.setattr(expenses, "invalidate_report_source_cache", lambda: captured.setdefault("report_invalidated", True))
 
     payload = expenses.update_expense_endpoint(
         1,
@@ -100,4 +117,116 @@ def test_update_expense_applies_finance_credit_for_negative_amount(monkeypatch) 
 
     assert captured["linked"]["reverse_amount"] == Decimal("12.00")
     assert captured["linked"]["apply_amount"] == Decimal("-8.00")
+    assert captured["report_invalidated"] is True
     assert payload["amount_gbp"] == "-8.00"
+
+
+def test_create_expense_accepts_wallet_account_label_for_finance_link(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    transaction = make_transaction(amount_gbp="2.00", payment_method="Wallet / Cash / GBP")
+    stored = make_stored_transaction(amount_gbp="2.00", payment_method="Wallet / Cash / GBP")
+
+    monkeypatch.setattr(expenses, "validate_expense_transaction", lambda payload: transaction)
+    monkeypatch.setattr(expenses, "insert_transaction", lambda tx: captured.setdefault("insert", tx) or stored)
+
+    def fake_insert_with_finance_link(*args, **kwargs):
+        captured["linked"] = kwargs
+        return stored
+
+    monkeypatch.setattr(expenses, "insert_transaction_with_finance_link", fake_insert_with_finance_link)
+    monkeypatch.setattr(expenses, "invalidate_finance_dashboard_cache", lambda: captured.setdefault("invalidated", True))
+    monkeypatch.setattr(expenses, "invalidate_report_source_cache", lambda: captured.setdefault("report_invalidated", True))
+
+    payload = expenses.create_expense(
+        expenses.ExpenseCreate(
+            transaction_date="2026-07-09",
+            description="Cash snack",
+            category="Food",
+            group="Living",
+            amount_gbp="2.00",
+            payment_method="Wallet / Cash / GBP",
+        )
+    )
+
+    assert "insert" not in captured
+    assert captured["linked"]["institution"] == "Wallet"
+    assert captured["linked"]["account"] == "Cash"
+    assert captured["linked"]["currency"] == "GBP"
+    assert captured["linked"]["deduction_amount"] == Decimal("2.00")
+    assert captured["report_invalidated"] is True
+    assert payload["payment_method"] == "Wallet / Cash / GBP"
+
+
+def test_create_expense_accepts_wallet_text_variant_for_finance_link(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    transaction = make_transaction(amount_gbp="2.00", payment_method="wallet-cash gbp")
+    stored = make_stored_transaction(amount_gbp="2.00", payment_method="wallet-cash gbp")
+
+    monkeypatch.setattr(expenses, "validate_expense_transaction", lambda payload: transaction)
+    monkeypatch.setattr(expenses, "insert_transaction", lambda tx: captured.setdefault("insert", tx) or stored)
+
+    def fake_insert_with_finance_link(*args, **kwargs):
+        captured["linked"] = kwargs
+        return stored
+
+    monkeypatch.setattr(expenses, "insert_transaction_with_finance_link", fake_insert_with_finance_link)
+    monkeypatch.setattr(expenses, "invalidate_finance_dashboard_cache", lambda: captured.setdefault("invalidated", True))
+    monkeypatch.setattr(expenses, "invalidate_report_source_cache", lambda: captured.setdefault("report_invalidated", True))
+
+    payload = expenses.create_expense(
+        expenses.ExpenseCreate(
+            transaction_date="2026-07-09",
+            description="Cash snack",
+            category="Food",
+            group="Living",
+            amount_gbp="2.00",
+            payment_method="wallet-cash gbp",
+        )
+    )
+
+    assert "insert" not in captured
+    assert captured["linked"]["institution"] == "Wallet"
+    assert captured["linked"]["account"] == "Cash"
+    assert captured["linked"]["currency"] == "GBP"
+    assert captured["linked"]["deduction_amount"] == Decimal("2.00")
+    assert captured["report_invalidated"] is True
+    assert payload["payment_method"] == "wallet-cash gbp"
+
+
+def test_update_expense_heals_legacy_wallet_label_without_reverse(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    original = make_stored_transaction(amount_gbp="2.00", payment_method="Wallet / Cash / GBP")
+    transaction = make_transaction(amount_gbp="2.00", payment_method="Wallet / Cash / GBP")
+    updated = make_stored_transaction(amount_gbp="2.00", payment_method="Wallet / Cash / GBP")
+
+    monkeypatch.setattr(expenses, "fetch_transaction_by_id", lambda expense_id: original)
+    monkeypatch.setattr(expenses, "fetch_finance_snapshot_history", lambda: [])
+    monkeypatch.setattr(expenses, "validate_expense_transaction", lambda payload: transaction)
+
+    def fake_update_with_finance_link(*args, **kwargs):
+        captured["linked"] = kwargs
+        return updated
+
+    monkeypatch.setattr(expenses, "update_transaction_with_finance_link", fake_update_with_finance_link)
+    monkeypatch.setattr(expenses, "invalidate_finance_dashboard_cache", lambda: captured.setdefault("invalidated", True))
+    monkeypatch.setattr(expenses, "invalidate_report_source_cache", lambda: captured.setdefault("report_invalidated", True))
+
+    payload = expenses.update_expense_endpoint(
+        1,
+        expenses.ExpenseUpdate(
+            transaction_date="2026-07-09",
+            description="Cash snack",
+            category="Food",
+            group="Living",
+            amount_gbp="2.00",
+            payment_method="Wallet / Cash / GBP",
+        ),
+    )
+
+    assert captured["linked"]["reverse_amount"] is None
+    assert captured["linked"]["apply_institution"] == "Wallet"
+    assert captured["linked"]["apply_account"] == "Cash"
+    assert captured["linked"]["apply_currency"] == "GBP"
+    assert captured["linked"]["apply_amount"] == Decimal("2.00")
+    assert captured["report_invalidated"] is True
+    assert payload["payment_method"] == "Wallet / Cash / GBP"

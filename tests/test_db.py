@@ -274,6 +274,38 @@ def test_resolve_finance_link_for_amounts_keeps_negative_hkd_amounts() -> None:
     ) == ("HSBC HK", "HKD", "HKD", Decimal("-10.00"))
 
 
+def test_resolve_finance_link_for_amounts_supports_wallet_gbp() -> None:
+    assert db._resolve_finance_link_for_amounts(
+        payment_method="Wallet GBP",
+        amount_gbp=Decimal("25.50"),
+        amount_hkd=None,
+    ) == ("Wallet", "Cash", "GBP", Decimal("25.50"))
+
+
+def test_resolve_income_account_link_accepts_wallet_account_label() -> None:
+    assert db._resolve_income_account_link("Wallet / Cash / GBP") == (
+        "Wallet",
+        "Cash",
+        "GBP",
+    )
+
+
+def test_resolve_finance_link_for_amounts_accepts_wallet_account_label() -> None:
+    assert db._resolve_finance_link_for_amounts(
+        payment_method="Wallet / Cash / GBP",
+        amount_gbp=Decimal("2.00"),
+        amount_hkd=None,
+    ) == ("Wallet", "Cash", "GBP", Decimal("2.00"))
+
+
+def test_resolve_finance_link_for_amounts_accepts_wallet_text_variants() -> None:
+    assert db._resolve_finance_link_for_amounts(
+        payment_method="wallet-cash gbp",
+        amount_gbp=Decimal("2.00"),
+        amount_hkd=None,
+    ) == ("Wallet", "Cash", "GBP", Decimal("2.00"))
+
+
 def make_tax_due_row(entry_id: int = 1) -> dict[str, object]:
     return {
         "id": entry_id,
