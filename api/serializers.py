@@ -421,3 +421,229 @@ def serialize_daily_plan_item(stored) -> dict[str, Any]:
         "source_plan_item_id": stored.source_plan_item_id,
         "moved_to_plan_item_id": stored.moved_to_plan_item_id,
     }
+
+
+def serialize_english_writing_issue(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "journal_entry_id": stored.journal_entry_id,
+        "issue_type": stored.issue_type,
+        "original_text": stored.original_text,
+        "suggested_text": stored.suggested_text,
+        "explanation": stored.explanation,
+    }
+
+
+def serialize_english_journal_entry(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "entry_date": _date_or_none(stored.entry_date),
+        "prompt": stored.prompt,
+        "content": stored.content,
+        "clarity_notes": stored.clarity_notes,
+        "vocabulary_notes": stored.vocabulary_notes,
+        "grammar_notes": stored.grammar_notes,
+        "mood_score": stored.mood_score,
+        "confidence_score": stored.confidence_score,
+        "writing_issues": [serialize_english_writing_issue(item) for item in getattr(stored, "writing_issues", ())],
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_reading_book(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "current_page": stored.current_page,
+        "total_pages": stored.total_pages,
+        "status": stored.status,
+        "last_updated_date": _date_or_none(stored.last_updated_date),
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_listening_source(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "source_type": stored.source_type,
+        "url": stored.url,
+        "notes": stored.notes,
+        "is_active": stored.is_active,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_listening_session(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "source_id": stored.source_id,
+        "source_title": getattr(stored, "source_title", None),
+        "session_date": _date_or_none(stored.session_date),
+        "focus_area": stored.focus_area,
+        "notes": stored.notes,
+        "reflection": stored.reflection,
+        "difficulty_score": stored.difficulty_score,
+        "second_pass_completed": stored.second_pass_completed,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_word_lookup(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "phrase": stored.phrase,
+        "item_type": stored.item_type,
+        "learning_classification": stored.learning_classification,
+        "familiarity_status": stored.familiarity_status,
+        "familiarity_label": getattr(stored, "familiarity_label", None),
+        "meaning": stored.meaning,
+        "meaning_cantonese": stored.meaning_cantonese,
+        "example_sentence": stored.example_sentence,
+        "source_context": stored.source_context,
+        "pronunciation_note": stored.pronunciation_note,
+        "is_promoted": stored.is_promoted,
+        "promoted_at": stored.promoted_at.isoformat() if stored.promoted_at else None,
+        "status": stored.status,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_vocabulary_item(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "lookup_id": stored.lookup_id,
+        "phrase": stored.phrase,
+        "item_type": stored.item_type,
+        "learning_classification": stored.learning_classification,
+        "familiarity_status": stored.familiarity_status,
+        "familiarity_label": getattr(stored, "familiarity_label", None),
+        "meaning": stored.meaning,
+        "meaning_cantonese": stored.meaning_cantonese,
+        "example_sentence": stored.example_sentence,
+        "source_context": stored.source_context,
+        "personal_sentence": stored.personal_sentence,
+        "category": stored.category,
+        "pronunciation_note": stored.pronunciation_note,
+        "status": stored.status,
+        "confidence_label": getattr(stored, "confidence_label", None),
+        "next_review_date": _date_or_none(stored.next_review_date),
+        "last_reviewed_at": stored.last_reviewed_at.isoformat() if stored.last_reviewed_at else None,
+        "review_stage": stored.review_stage,
+        "promoted_at": stored.promoted_at.isoformat() if stored.promoted_at else None,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_vocabulary_review(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "vocabulary_item_id": stored.vocabulary_item_id,
+        "review_date": _date_or_none(stored.review_date),
+        "confidence_score": stored.confidence_score,
+        "result": stored.result,
+        "notes": stored.notes,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_speaking_session(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "topic": stored.topic,
+        "prompt": stored.prompt,
+        "attempt_one_notes": stored.attempt_one_notes,
+        "attempt_two_notes": stored.attempt_two_notes,
+        "reflection": stored.reflection,
+        "session_date": _date_or_none(stored.session_date),
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_interview_question(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "question": stored.question,
+        "category": stored.category,
+        "notes": stored.notes,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_interview_practice(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "question_id": stored.question_id,
+        "question_text": getattr(stored, "question_text", None),
+        "practice_date": _date_or_none(stored.practice_date),
+        "answer_notes": stored.answer_notes,
+        "follow_up_notes": stored.follow_up_notes,
+        "confidence_score": stored.confidence_score,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_star_story(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "title": stored.title,
+        "situation": stored.situation,
+        "task": stored.task,
+        "action": stored.action,
+        "result": stored.result,
+        "target_skill": stored.target_skill,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_weekly_review(stored) -> dict[str, Any]:
+    return {
+        "id": stored.id,
+        "week_start_date": _date_or_none(stored.week_start_date),
+        "summary": stored.summary,
+        "wins": stored.wins,
+        "stretch_area": stored.stretch_area,
+        "next_focus": stored.next_focus,
+        "created_at": stored.created_at.isoformat() if stored.created_at else None,
+        "updated_at": stored.updated_at.isoformat() if stored.updated_at else None,
+    }
+
+
+def serialize_english_progress(progress: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "journals": progress.get("journals", 0),
+        "active_books": progress.get("active_books", 0),
+        "completed_books": progress.get("completed_books", 0),
+        "listening_sessions": progress.get("listening_sessions", 0),
+        "lookups": progress.get("lookups", 0),
+        "active_vocabulary": progress.get("active_vocabulary", 0),
+        "reviews_due": progress.get("reviews_due", 0),
+        "reviews_completed": progress.get("reviews_completed", 0),
+        "speaking_sessions": progress.get("speaking_sessions", 0),
+        "interview_practices": progress.get("interview_practices", 0),
+        "star_stories": progress.get("star_stories", 0),
+    }
+
+
+def serialize_english_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "journal_prompt": payload.get("journal_prompt"),
+        "latest_journal": serialize_english_journal_entry(payload["latest_journal"]) if payload.get("latest_journal") else None,
+        "active_book": serialize_english_reading_book(payload["active_book"]) if payload.get("active_book") else None,
+        "recent_books": [serialize_english_reading_book(item) for item in payload.get("recent_books", [])],
+        "listening_spotlight": serialize_english_listening_session(payload["listening_spotlight"]) if payload.get("listening_spotlight") else None,
+        "weekly_review": serialize_english_weekly_review(payload["weekly_review"]) if payload.get("weekly_review") else None,
+        "progress": serialize_english_progress(payload.get("progress", {})),
+        "recent_activity": payload.get("recent_activity", {}),
+    }

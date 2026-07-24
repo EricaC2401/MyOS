@@ -9,6 +9,8 @@ As of July 16, 2026, the app supports a hosted/mobile-friendly deployment model:
 - add-to-home-screen support
 - Supabase credentials stored on the server instead of in the browser
 
+The app now also includes an `English Learning` area for lightweight practice across journal writing, reading, listening, vocabulary review, speaking, interview preparation, weekly reflection, and progress tracking.
+
 ## Local development
 
 1. Create and activate a Python 3.11+ virtual environment.
@@ -108,7 +110,7 @@ python -m src.generate_password_hash
 
 - Login screen opens and accepts the correct password.
 - Dashboard loads on an iPhone-sized viewport without horizontal overflow.
-- Finance, planner, and settings navigation works from the mobile menu.
+- Finance, planner, English Learning, and settings navigation works from the mobile menu.
 - Add-to-home-screen metadata loads correctly.
 - Settings exposes `Log out`.
 
@@ -126,6 +128,7 @@ python -m src.generate_password_hash
    To allow negative expense amounts for discounts and refunds, run [sql/024_allow_negative_expense_amounts.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/app/sql/024_allow_negative_expense_amounts.sql).
    To create and seed the category catalog, run [sql/025_create_category_catalog.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/app/sql/025_create_category_catalog.sql).
    If your category catalog already exists and you want the new `Discount` category added, also run [sql/034_add_discount_category.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/app/sql/034_add_discount_category.sql).
+   To enable the English Learning module, also run [sql/035_add_english_learning.sql](/Users/ericachung_1/Desktop/Erica/Vibe%20Codeing/MyOS/app/sql/035_add_english_learning.sql).
 3. Set the `SUPABASE_*` environment variables with your own database credentials before starting the app.
 
 Notes:
@@ -137,9 +140,12 @@ Notes:
 - Negative expenses are supported for discounts and refunds after `sql/024_allow_negative_expense_amounts.sql` has been applied. If the database is missing that migration, saving a negative expense will fail.
 - The app also includes a separate `Finance Situation` page for current balance snapshot rows by institution, account, currency, and snapshot date.
 - The `Finance Situation` page can also store transfers and exchange records, including optional receiving-side fees in the destination currency, and apply the paired balance adjustments there without affecting expense or income reports.
+- The `English Learning` area stores its data in the same Supabase PostgreSQL database through dedicated `english_*` tables. It does not introduce a second database, second login flow, or separate deployment process.
 - Row Level Security is enabled on `public.transactions`, with no public policies added by default.
 
 ## Notes
 
 - Do not commit real credentials.
 - CSV export is planned as the V1 backup method.
+- English Learning export is available as JSON at `/api/export/english`.
+- Run `PYTHONPATH=. ./venv/bin/pytest` after applying the English migration to validate the new module.

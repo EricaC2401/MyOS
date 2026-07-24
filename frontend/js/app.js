@@ -2699,7 +2699,7 @@ function navArea(area, el) {
 
   // Switch sidebar mode
   document.querySelectorAll('.sb-mode').forEach(m => m.style.display = 'none');
-  const sidebarMap = { home: 'sb-mode-home', finance: 'sb-mode-finance', planner: 'sb-mode-planner', data: 'sb-mode-finance', settings: 'sb-mode-finance' };
+  const sidebarMap = { home: 'sb-mode-home', finance: 'sb-mode-finance', planner: 'sb-mode-planner', english: 'sb-mode-english', data: 'sb-mode-finance', settings: 'sb-mode-finance' };
   const sbMode = document.getElementById(sidebarMap[area] || 'sb-mode-home');
   if (sbMode) sbMode.style.display = 'flex';
 
@@ -2747,6 +2747,9 @@ function navArea(area, el) {
       if (typeof initShell === 'function') initShell();
       if (typeof loadDataAndRender === 'function') loadDataAndRender();
     }
+  } else if (area === 'english') {
+    document.getElementById('page-title').textContent = 'English Learning';
+    if (typeof initEnglishLearning === 'function') initEnglishLearning();
   } else if (area === 'data') {
     document.getElementById('page-title').textContent = 'Data';
   } else if (area === 'settings') {
@@ -5067,7 +5070,7 @@ function bootAppIfReady() {
   let initialArea = 'home';
   try {
     const storedArea = sessionStorage.getItem(LAST_AREA_STORAGE_KEY);
-    if (storedArea && ['home', 'finance', 'planner', 'data', 'settings'].includes(storedArea)) {
+    if (storedArea && ['home', 'finance', 'planner', 'english', 'data', 'settings'].includes(storedArea)) {
       initialArea = storedArea;
     }
   } catch (error) {}

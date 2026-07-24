@@ -3,6 +3,7 @@
 async function loadHomePage() {
   const finStats = document.getElementById('home-finance-stats');
   const plStats = document.getElementById('home-planner-stats');
+  const englishStats = document.getElementById('home-english-stats');
 
   if (finStats) {
     try {
@@ -25,6 +26,15 @@ async function loadHomePage() {
       plStats.textContent = text;
     } catch {
       plStats.textContent = '';
+    }
+  }
+
+  if (englishStats) {
+    try {
+      const progress = await apiGet('/english/progress');
+      englishStats.textContent = `${progress.reviews_due} review${progress.reviews_due !== 1 ? 's' : ''} due · ${progress.active_books} active book${progress.active_books !== 1 ? 's' : ''}`;
+    } catch {
+      englishStats.textContent = '';
     }
   }
 }

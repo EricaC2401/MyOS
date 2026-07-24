@@ -142,6 +142,7 @@ def create_app() -> FastAPI:
         setup,
         habits, habit_categories, goal_themes, goals, planner_tasks, planner_events,
         daily_plans, daily_plan_items, planner_tags,
+        english,
     )
 
     app.include_router(auth.router, prefix="/api")
@@ -169,6 +170,7 @@ def create_app() -> FastAPI:
     app.include_router(daily_plans.router, prefix="/api")
     app.include_router(daily_plan_items.router, prefix="/api")
     app.include_router(planner_tags.router, prefix="/api")
+    app.include_router(english.router, prefix="/api")
 
     if FRONTEND_DIR.exists():
         app.mount("/css", StaticFiles(directory=str(FRONTEND_DIR / "css")), name="css")

@@ -12,14 +12,17 @@ from src.db import (
     delete_income_transaction,
     delete_income_transaction_with_finance_link,
     fetch_finance_snapshot_entries,
+    fetch_hmrc_monthly_exchange_rates,
     fetch_income_transactions,
     insert_income_transaction,
     insert_income_transaction_with_finance_link,
+    upsert_hmrc_monthly_exchange_rates,
     update_income_transaction,
     update_income_transaction_with_finance_link,
     FinanceLinkError,
 )
 from src.models import validate_income_transaction, ValidationError
+from src.import_csv import CSVImportError, enrich_income_with_month_rates, fetch_hmrc_monthly_rates
 from src.finance_dashboard_cache import invalidate_finance_dashboard_cache
 from src.report_cache import invalidate_report_source_cache
 from api.serializers import serialize_income
@@ -36,6 +39,29 @@ def _resolve_income_finance_link(payment_account, income):
         if label == payment_account.strip() and entry.currency == income.currency:
             return (entry.institution, entry.account, entry.currency), Decimal(income.gross_amount)
     return None
+
+
+def _enrich_income_for_gbp_display(income):
+    if income.currency == "GBP":
+        return enrich_income_with_month_rates(
+            income,
+            month_rates={"GBP": Decimal("1")},
+            gross_amount_gbp=income.gross_amount,
+            fx_rate_to_gbp=Decimal("1.00000000"),
+        )
+
+    month_anchor = income.income_date.replace(day=1)
+    month_rates = fetch_hmrc_monthly_exchange_rates(month_anchor)
+    if income.currency not in month_rates:
+        try:
+            month_rates = fetch_hmrc_monthly_rates(income.income_date.year, income.income_date.month)
+        except CSVImportError as exc:
+            raise ValidationError(str(exc)) from exc
+        upsert_hmrc_monthly_exchange_rates(month_anchor, month_rates, source="hmrc-manual-income")
+    try:
+        return enrich_income_with_month_rates(income, month_rates=month_rates)
+    except CSVImportError as exc:
+        raise ValidationError(str(exc)) from exc
 
 
 class IncomeCreate(BaseModel):
@@ -121,7 +147,7 @@ def get_income_metadata():
 @router.post("")
 def create_income(body: IncomeCreate):
     payload = body.model_dump()
-    income = validate_income_transaction(payload)
+    income = _enrich_income_for_gbp_display(validate_income_transaction(payload))
     addition = _resolve_income_finance_link(body.payment_account, income)
     if addition is None:
         stored = insert_income_transaction(income)
@@ -146,7 +172,7 @@ def update_income_endpoint(income_id: int, body: IncomeUpdate):
         return JSONResponse(status_code=404, content={"detail": f"Income #{income_id} not found"})
 
     payload = body.model_dump()
-    income = validate_income_transaction(payload)
+    income = _enrich_income_for_gbp_display(validate_income_transaction(payload))
 
     reverse = _resolve_income_finance_link(original.payment_account, original)
     apply = _resolve_income_finance_link(body.payment_account, income)

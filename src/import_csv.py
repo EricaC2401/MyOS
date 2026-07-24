@@ -158,7 +158,12 @@ def fetch_hmrc_monthly_rates(year: int, month: int) -> dict[str, Decimal]:
     rates: dict[str, Decimal] = {}
     for row in reader:
         code = (row.get("Currency Code") or "").strip().upper()
-        units_per_gbp = (row.get("Currency Units per £1") or "").strip()
+        units_per_gbp = (
+            row.get("Currency Units per £1")
+            or row.get("Currency Units per \\xc2\\xa31")
+            or row.get("Currency Units per GBP1")
+            or ""
+        ).strip()
         if not code or not units_per_gbp:
             continue
         rates[code] = Decimal(units_per_gbp)

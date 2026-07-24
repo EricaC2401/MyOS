@@ -11,7 +11,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
-<link rel="stylesheet" href="/css/app.css?v=20260716-06">
+<link rel="stylesheet" href="/css/app.css?v=20260723-02">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -31,6 +31,7 @@
     <button class="nav active" onclick="navArea('home',this)"><i class="ti ti-home"></i>Home</button>
     <button class="nav" onclick="navArea('finance',null)"><i class="ti ti-building-bank"></i>Finance</button>
     <button class="nav" onclick="navArea('planner',null)"><i class="ti ti-calendar-event"></i>Daily Planner</button>
+    <button class="nav" onclick="navArea('english',null)"><i class="ti ti-language"></i>English Learning</button>
     <div class="sb-spacer"></div>
     <button class="nav" onclick="navArea('data',this)"><i class="ti ti-database"></i>Data</button>
     <button class="nav" onclick="navArea('settings',this)"><i class="ti ti-settings"></i>Settings</button>
@@ -83,6 +84,23 @@
     </button>
     <div class="sb-spacer"></div>
     <div class="sb-date"><strong id="sb-dow"></strong><span id="sb-date"></span></div>
+  </div>
+
+  <div class="sb-mode" id="sb-mode-english" style="display:none">
+    <div class="sb-logo" onclick="navArea('home',null)" style="cursor:pointer">
+      <div class="sb-logo-icon"><i class="ti ti-language"></i></div>
+      <span class="sb-logo-text">MyOS</span>
+    </div>
+    <div class="sb-section">English Learning</div>
+    <button class="nav active" id="nav-english-today" onclick="showEnglishSection('today',this)"><i class="ti ti-sparkles"></i>Today</button>
+    <button class="nav" id="nav-english-journal" onclick="showEnglishSection('journal',this)"><i class="ti ti-notebook"></i>Journal</button>
+    <button class="nav" id="nav-english-reading" onclick="showEnglishSection('reading',this)"><i class="ti ti-book-2"></i>Reading</button>
+    <button class="nav" id="nav-english-listening" onclick="showEnglishSection('listening',this)"><i class="ti ti-headphones"></i>Listening</button>
+    <button class="nav" id="nav-english-vocabulary" onclick="showEnglishSection('vocabulary',this)"><i class="ti ti-abc"></i>Vocabulary</button>
+    <button class="nav" id="nav-english-speaking" onclick="showEnglishSection('speaking',this)"><i class="ti ti-microphone-2"></i>Speaking</button>
+    <button class="nav" id="nav-english-interview" onclick="showEnglishSection('interview',this)"><i class="ti ti-briefcase-2"></i>Interview Practice</button>
+    <button class="nav" id="nav-english-weekly-review" onclick="showEnglishSection('weekly-review',this)"><i class="ti ti-calendar-week"></i>Weekly Review</button>
+    <button class="nav" id="nav-english-progress" onclick="showEnglishSection('progress',this)"><i class="ti ti-chart-line"></i>Progress</button>
   </div>
 
 </div>
@@ -146,6 +164,28 @@
             <div class="home-card-stats" id="home-planner-stats"></div>
           </div>
         </div>
+        <div class="home-card" onclick="navArea('english',document.querySelector('#sb-mode-home .nav:nth-child(5)'))">
+          <div class="home-card-icon" style="background:#FFF2D9"><i class="ti ti-language" style="color:#B26800"></i></div>
+          <div class="home-card-body">
+            <div class="home-card-title">English Learning</div>
+            <div class="home-card-desc">Journal, reading, vocabulary, speaking, and interview practice</div>
+            <div class="home-card-stats" id="home-english-stats"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="area" id="area-english">
+      <div class="english-shell">
+        <div class="english-view active" id="english-section-today"></div>
+        <div class="english-view" id="english-section-journal"></div>
+        <div class="english-view" id="english-section-reading"></div>
+        <div class="english-view" id="english-section-listening"></div>
+        <div class="english-view" id="english-section-vocabulary"></div>
+        <div class="english-view" id="english-section-speaking"></div>
+        <div class="english-view" id="english-section-interview"></div>
+        <div class="english-view" id="english-section-weekly-review"></div>
+        <div class="english-view" id="english-section-progress"></div>
       </div>
     </div>
 
@@ -1416,7 +1456,8 @@
 <script src="/js/planner-utils.js?v=20260629-01"></script>
 <script src="/js/planner.js?v=20260716-09"></script>
 <script src="/js/habits.js?v=20260629-01"></script>
-<script src="/js/home.js?v=20260629-01"></script>
-<script src="/js/app.js?v=20260716-05"></script>
+<script src="/js/home.js?v=20260719-01"></script>
+<script src="/js/english.js?v=20260723-03"></script>
+<script src="/js/app.js?v=20260719-01"></script>
 </body>
 </html>

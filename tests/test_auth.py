@@ -38,6 +38,15 @@ def test_protected_routes_reject_unauthenticated_requests(monkeypatch) -> None:
     assert response.json()["detail"] == "Authentication required."
 
 
+def test_english_routes_reject_unauthenticated_requests(monkeypatch) -> None:
+    client = build_client(monkeypatch)
+
+    response = client.get("/api/english/dashboard")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required."
+
+
 def test_login_logout_flow(monkeypatch) -> None:
     client = build_client(monkeypatch)
 
